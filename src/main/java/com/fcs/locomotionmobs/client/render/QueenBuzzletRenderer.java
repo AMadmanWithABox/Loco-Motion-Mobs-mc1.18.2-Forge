@@ -13,10 +13,9 @@ public class QueenBuzzletRenderer extends MobRenderer<QueenBuzzlet, QueenBuzzlet
     //This is the location of the texture for Queen Buzzlet. It's used in other places to grab the texture
     public static final ResourceLocation TEXTURE = new ResourceLocation(Main.MOD_ID, "textures/entity/queen_buzzlet.png");
 
-    //this constructor is used to link the texture to the model. not exactly sure what the float in the super does, but
-    //if you can figure it out let me know
+    //this constructor is used to link the texture to the model. the float is the size of the shadow!
     public QueenBuzzletRenderer(EntityRendererProvider.Context context) {
-        super(context, new QueenBuzzletModel(context.bakeLayer(QueenBuzzletModel.LAYER_LOCATION)), 9.5f);
+        super(context, new QueenBuzzletModel(context.bakeLayer(QueenBuzzletModel.LAYER_LOCATION)), 0.5f);
     }
 
     //When things are needy and use a method to ask for TEXTURE
