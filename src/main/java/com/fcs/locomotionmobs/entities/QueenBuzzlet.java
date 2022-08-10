@@ -8,6 +8,7 @@ import net.minecraft.network.syncher.EntityDataSerializers;
 import net.minecraft.network.syncher.SynchedEntityData;
 import net.minecraft.server.level.ServerBossEvent;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.Difficulty;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.*;
 import net.minecraft.world.entity.ai.attributes.AttributeSupplier;
@@ -17,6 +18,7 @@ import net.minecraft.world.entity.ai.goal.MeleeAttackGoal;
 import net.minecraft.world.entity.ai.goal.RandomLookAroundGoal;
 import net.minecraft.world.entity.ai.goal.RandomStrollGoal;
 import net.minecraft.world.entity.ai.goal.target.HurtByTargetGoal;
+import net.minecraft.world.entity.boss.wither.WitherBoss;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.monster.Monster;
 import net.minecraft.world.item.Items;
@@ -52,10 +54,10 @@ public class QueenBuzzlet extends Monster {
             itementity.setExtendedLifetime();
         }
     }
-//    @Override
-//    protected boolean shouldDespawnInPeaceful() {
-//        return false;
-//    }
+    @Override
+    protected boolean shouldDespawnInPeaceful() {
+        return false;
+    }
 
     //This is important for the game server to communicate with the client. Even though we are playing in single player,
     //this is necessary in order to spawn the Queen Buzzlet in.
@@ -64,6 +66,12 @@ public class QueenBuzzlet extends Monster {
         return NetworkHooks.getEntitySpawningPacket(this);
     }
 
+    @Override
+    public void checkDespawn() {
+        if(this.level.getDifficulty() == Difficulty.PEACEFUL && this.shouldDespawnInPeaceful()){
+            discard();
+        }
+    }
 
     // During my research I found a bunch of methods you guys may want to use
     // This first one is obviously for registering goals for the ai to use
@@ -129,6 +137,15 @@ public class QueenBuzzlet extends Monster {
         this.bossInfo.setProgress(this.getHealth() / this.getMaxHealth());
     }
 
+    @Override
+    public void tick(){
+        super.tick();
+        if(this.level.getNearestPlayer(this, 50) == null){
+            if(getHealth() < getMaxHealth())
+                this.heal(0.1f);
+        }
+    }
+
     //If we wanted to spawn our mob in naturally in the world, we would use this. This may be useful if we end up making more mobs
 //    public static void init() {
 //        SpawnPlacements.register(EntityInit.QUEEN_BUZZLET.get(), SpawnPlacements.Type.ON_GROUND, Heightmap.Types.MOTION_BLOCKING_NO_LEAVES,
@@ -141,7 +158,7 @@ public class QueenBuzzlet extends Monster {
     public static AttributeSupplier.Builder createAttributes(){
         AttributeSupplier.Builder builder = Mob.createMobAttributes();
         builder = builder.add(Attributes.MOVEMENT_SPEED, 0.3);
-        builder = builder.add(Attributes.MAX_HEALTH, 10);
+        builder = builder.add(Attributes.MAX_HEALTH, 300);
         builder = builder.add(Attributes.ARMOR, 0);
         builder = builder.add(Attributes.ATTACK_DAMAGE, 3);
         return builder;
