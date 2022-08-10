@@ -22,7 +22,7 @@ public class EntityInit {
                 .setShouldReceiveVelocityUpdates(true)
                 .sized(0.7F, 0.7F)
                 .clientTrackingRange(10)
-                .setUpdateInterval(3));
+                .setCustomClientFactory(QueenBuzzlet::new));
 
     //My final problem was everything below here. The game did not know what the attributes of the mob were and therefore could not spawn it.
 

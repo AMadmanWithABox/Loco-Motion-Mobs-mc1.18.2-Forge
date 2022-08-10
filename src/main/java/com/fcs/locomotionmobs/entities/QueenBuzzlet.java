@@ -1,29 +1,45 @@
 package com.fcs.locomotionmobs.entities;
 
 import com.fcs.locomotionmobs.init.EntityInit;
+import net.minecraft.network.chat.TextComponent;
 import net.minecraft.network.protocol.Packet;
 import net.minecraft.network.syncher.EntityDataAccessor;
 import net.minecraft.network.syncher.EntityDataSerializers;
 import net.minecraft.network.syncher.SynchedEntityData;
-import net.minecraft.world.Difficulty;
+import net.minecraft.server.level.ServerBossEvent;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.*;
 import net.minecraft.world.entity.ai.attributes.AttributeSupplier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.entity.ai.goal.FloatGoal;
+import net.minecraft.world.entity.ai.goal.MeleeAttackGoal;
+import net.minecraft.world.entity.ai.goal.RandomLookAroundGoal;
+import net.minecraft.world.entity.ai.goal.RandomStrollGoal;
+import net.minecraft.world.entity.ai.goal.target.HurtByTargetGoal;
 import net.minecraft.world.entity.monster.Monster;
 import net.minecraft.world.level.Level;
-import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraftforge.network.NetworkHooks;
+import net.minecraftforge.network.PlayMessages;
 
 
 public class QueenBuzzlet extends Monster {
     //I believe that this is what you use to tell the game that this Monster is flying
-    //private static final EntityDataAccessor<Boolean> FLYING = SynchedEntityData.defineId(QueenBuzzlet.class, EntityDataSerializers.BOOLEAN);
+    private static final EntityDataAccessor<Boolean> FLYING = SynchedEntityData.defineId(QueenBuzzlet.class, EntityDataSerializers.BOOLEAN);
 
+    private final ServerBossEvent bossInfo = new ServerBossEvent(this.getDisplayName(),
+            ServerBossEvent.BossBarColor.WHITE,
+            ServerBossEvent.BossBarOverlay.PROGRESS);
+
+    public QueenBuzzlet(PlayMessages.SpawnEntity packet, Level world){
+        this(EntityInit.QUEEN_BUZZLET.get(), world);
+    }
     public QueenBuzzlet(EntityType<QueenBuzzlet> entityType, Level level) {
         super(entityType, level);
         xpReward = 0;
-        //set this to false to enable ai. I was using this to adjust the hitbox and the model
-        setNoAi(true);
+        setCustomName(new TextComponent("Queen Buzzlet"));
+        setCustomNameVisible(true);
+        //set this to false to enable AI. I was using this to adjust the hit box and the model
+        setNoAi(false);
     }
 
 
@@ -37,20 +53,20 @@ public class QueenBuzzlet extends Monster {
 
     // During my research I found a bunch of methods you guys may want to use
     // This first one is obviously for registering goals for the ai to use
-//    @Override
-//    protected void registerGoals() {
-//        super.registerGoals();
-//        this.goalSelector.addGoal(1, new MeleeAttackGoal(this, 1.2, false) {
-//            @Override
-//            protected double getAttackReachSqr(LivingEntity entity) {
-//                return (double) (4.0 + entity.getBbWidth() * entity.getBbWidth());
-//            }
-//        });
-//        this.goalSelector.addGoal(2, new RandomStrollGoal(this, 1));
-//        this.targetSelector.addGoal(3, new HurtByTargetGoal(this));
-//        this.goalSelector.addGoal(4, new RandomLookAroundGoal(this));
-//        this.goalSelector.addGoal(5, new FloatGoal(this));
-//    }
+    @Override
+    protected void registerGoals() {
+        super.registerGoals();
+        this.goalSelector.addGoal(1, new MeleeAttackGoal(this, 1.2, false) {
+            @Override
+            protected double getAttackReachSqr(LivingEntity entity) {
+                return (double) (4.0 + entity.getBbWidth() * entity.getBbWidth());
+            }
+        });
+        this.goalSelector.addGoal(2, new RandomStrollGoal(this, 1));
+        this.targetSelector.addGoal(3, new HurtByTargetGoal(this));
+        this.goalSelector.addGoal(4, new RandomLookAroundGoal(this));
+        this.goalSelector.addGoal(5, new FloatGoal(this));
+    }
 //
     //For ambient bee noises
 //    @Override
@@ -76,11 +92,28 @@ public class QueenBuzzlet extends Monster {
 //        return false;
 //    }
 //
+    @Override
+    public MobType getMobType(){
+        return MobType.UNDEFINED;
+    }
     //This is a method that is triggered when the player first sees the entity
-//    @Override
-//    public void startSeenByPlayer(ServerPlayer player) {
-//        super.startSeenByPlayer(player);
-//    }
+    @Override
+    public void startSeenByPlayer(ServerPlayer player) {
+        super.startSeenByPlayer(player);
+        bossInfo.addPlayer(player);
+    }
+
+    @Override
+    public void stopSeenByPlayer(ServerPlayer player){
+        super.stopSeenByPlayer(player);
+        bossInfo.removePlayer(player);
+    }
+
+    @Override
+    public void customServerAiStep(){
+        super.customServerAiStep();
+        this.bossInfo.setProgress(this.getHealth() / this.getMaxHealth());
+    }
 
     //If we wanted to spawn our mob in naturally in the world, we would use this. This may be useful if we end up making more mobs
 //    public static void init() {
