@@ -21,7 +21,7 @@ public class QueenBuzzlet extends Monster {
 
     public QueenBuzzlet(EntityType<QueenBuzzlet> entityType, Level level) {
         super(entityType, level);
-        xpReward = 0;
+        xpReward = 100;
         //set this to false to enable ai. I was using this to adjust the hitbox and the model
         setNoAi(true);
     }
