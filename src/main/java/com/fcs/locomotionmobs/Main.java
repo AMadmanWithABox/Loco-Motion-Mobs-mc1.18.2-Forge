@@ -1,8 +1,13 @@
 package com.fcs.locomotionmobs;
 
+import com.fcs.locomotionmobs.init.EntityInit;
+import com.fcs.locomotionmobs.init.ItemInit;
 import com.mojang.logging.LogUtils;
+import net.minecraft.world.entity.animal.Bee;
+import net.minecraft.world.entity.boss.wither.WitherBoss;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraftforge.common.ForgeSpawnEggItem;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.event.RegistryEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
@@ -16,6 +21,9 @@ import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
 import org.slf4j.Logger;
 
 import java.util.stream.Collectors;
+
+//Probably don't change anything in here, but feel free to add things if necessary
+
 
 // The value here should match an entry in the META-INF/mods.toml file
 @Mod(Main.MOD_ID)
@@ -37,6 +45,9 @@ public class Main
 
         // Register ourselves for server and other game events we are interested in
         MinecraftForge.EVENT_BUS.register(this);
+        //When we add registries, we will do that here
+        ItemInit.ITEMS.register(FMLJavaModLoadingContext.get().getModEventBus());
+        EntityInit.ENTITIES.register(FMLJavaModLoadingContext.get().getModEventBus());
     }
 
     private void setup(final FMLCommonSetupEvent event)
