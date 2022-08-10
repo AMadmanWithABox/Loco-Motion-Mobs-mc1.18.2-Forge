@@ -6,10 +6,13 @@ import net.minecraft.network.syncher.EntityDataAccessor;
 import net.minecraft.network.syncher.EntityDataSerializers;
 import net.minecraft.network.syncher.SynchedEntityData;
 import net.minecraft.world.Difficulty;
+import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.*;
 import net.minecraft.world.entity.ai.attributes.AttributeSupplier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.monster.Monster;
+import net.minecraft.world.item.Items;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraftforge.network.NetworkHooks;
@@ -21,11 +24,22 @@ public class QueenBuzzlet extends Monster {
 
     public QueenBuzzlet(EntityType<QueenBuzzlet> entityType, Level level) {
         super(entityType, level);
-        xpReward = 0;
+        xpReward = 100;
         //set this to false to enable ai. I was using this to adjust the hitbox and the model
         setNoAi(true);
     }
 
+    protected void dropCustomDeathLoot(DamageSource p_31464_, int p_31465_, boolean p_31466_) {
+        super.dropCustomDeathLoot(p_31464_, p_31465_, p_31466_);
+        ItemEntity itementity = this.spawnAtLocation(Items.ENCHANTED_GOLDEN_APPLE);
+        if (itementity != null) {
+            itementity.setExtendedLifetime();
+        }
+    }
+    @Override
+    protected boolean shouldDespawnInPeaceful() {
+        return false;
+    }
 
     //This is important for the game server to communicate with the client. Even though we are playing in single player,
     //this is necessary in order to spawn the Queen Buzzlet in.
