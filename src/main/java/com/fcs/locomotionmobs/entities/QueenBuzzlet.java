@@ -52,10 +52,10 @@ public class QueenBuzzlet extends Monster {
             itementity.setExtendedLifetime();
         }
     }
-    @Override
-    protected boolean shouldDespawnInPeaceful() {
-        return false;
-    }
+//    @Override
+//    protected boolean shouldDespawnInPeaceful() {
+//        return false;
+//    }
 
     //This is important for the game server to communicate with the client. Even though we are playing in single player,
     //this is necessary in order to spawn the Queen Buzzlet in.
