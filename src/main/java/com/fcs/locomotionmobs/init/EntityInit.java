@@ -21,7 +21,7 @@ public class EntityInit {
     public static final RegistryObject<EntityType<QueenBuzzlet>> QUEEN_BUZZLET = register("queen_buzzlet",
             EntityType.Builder.<QueenBuzzlet>of(QueenBuzzlet::new, MobCategory.MONSTER)
                 .setShouldReceiveVelocityUpdates(true)
-                .sized(0.7F, 0.7F)
+                .sized(2.5F, 2.0F)
                 .clientTrackingRange(10)
                 .setCustomClientFactory(QueenBuzzlet::new));
 
