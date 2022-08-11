@@ -13,15 +13,14 @@ import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.*;
 import net.minecraft.world.entity.ai.attributes.AttributeSupplier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
-import net.minecraft.world.entity.ai.goal.FloatGoal;
-import net.minecraft.world.entity.ai.goal.MeleeAttackGoal;
-import net.minecraft.world.entity.ai.goal.RandomLookAroundGoal;
-import net.minecraft.world.entity.ai.goal.RandomStrollGoal;
+import net.minecraft.world.entity.ai.goal.*;
 import net.minecraft.world.entity.ai.goal.target.HurtByTargetGoal;
-import net.minecraft.world.entity.boss.wither.WitherBoss;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.monster.Monster;
-import net.minecraft.world.item.Items;
+import net.minecraft.world.entity.monster.RangedAttackMob;
+import net.minecraft.world.entity.projectile.AbstractArrow;
+import net.minecraft.world.item.*;
+import net.minecraft.world.level.ItemLike;
 import net.minecraft.world.level.Level;
 import net.minecraftforge.network.NetworkHooks;
 import net.minecraftforge.network.PlayMessages;
@@ -30,7 +29,6 @@ import net.minecraftforge.network.PlayMessages;
 public class QueenBuzzlet extends Monster {
     //I believe that this is what you use to tell the game that this Monster is flying
     private static final EntityDataAccessor<Boolean> FLYING = SynchedEntityData.defineId(QueenBuzzlet.class, EntityDataSerializers.BOOLEAN);
-
     private final ServerBossEvent bossInfo = new ServerBossEvent(this.getDisplayName(),
             ServerBossEvent.BossBarColor.WHITE,
             ServerBossEvent.BossBarOverlay.PROGRESS);
@@ -88,6 +86,7 @@ public class QueenBuzzlet extends Monster {
         this.targetSelector.addGoal(3, new HurtByTargetGoal(this));
         this.goalSelector.addGoal(4, new RandomLookAroundGoal(this));
         this.goalSelector.addGoal(5, new FloatGoal(this));
+        this.goalSelector.addGoal(1, new StingerAttackGoal<>(this, 1.0D, 10, 15));
     }
 //
     //For ambient bee noises
@@ -146,6 +145,8 @@ public class QueenBuzzlet extends Monster {
         }
     }
 
+
+
     //If we wanted to spawn our mob in naturally in the world, we would use this. This may be useful if we end up making more mobs
 //    public static void init() {
 //        SpawnPlacements.register(EntityInit.QUEEN_BUZZLET.get(), SpawnPlacements.Type.ON_GROUND, Heightmap.Types.MOTION_BLOCKING_NO_LEAVES,
@@ -162,5 +163,73 @@ public class QueenBuzzlet extends Monster {
         builder = builder.add(Attributes.ARMOR, 0);
         builder = builder.add(Attributes.ATTACK_DAMAGE, 3);
         return builder;
+    }
+
+    public class StingerAttackGoal<T extends Mob & RangedAttackMob> extends RangedBowAttackGoal{
+        //used to simulate charging a shot. this is just the timer
+        private int attackTime = -1;
+        //this defines what an arrow is
+        private ArrowItem stinger = (ArrowItem) Items.ARROW;
+
+        //setting up a cooldown timer so Queen Buzzlet doesn't just spam arrows
+        private int cooldownTimer = 0;
+        //yes game, Queen Buzzlet totally has "Arrows" in its inventory
+        private ItemStack stingers = new ItemStack(new ItemLike() {
+            @Override
+            public Item asItem() {
+                return Items.ARROW;
+            }
+        });
+        private QueenBuzzlet usingEntity;
+        private final int attackInterval;
+        public StingerAttackGoal(QueenBuzzlet usingEntity, double speedMod, int attackInterval, float attackRadius) {
+            super(usingEntity, speedMod, attackInterval, attackRadius);
+            this.attackInterval = attackInterval;
+            this.usingEntity = usingEntity;
+        }
+
+        @Override
+        public boolean canUse() {
+            //check the cooldown timer to use
+            if(cooldownTimer == 0) {
+                return true;
+            }else {
+                cooldownTimer--;
+                return false;
+            }
+        }
+
+        @Override
+        protected boolean isHoldingBow() {
+            //yes game it's holding a "Bow"
+            return true;
+        }
+
+        @Override
+        public void tick() {
+            super.tick();
+            if(attackTime > attackInterval){
+                AbstractArrow abstractStinger = stinger.createArrow(usingEntity.getLevel(), stingers, usingEntity);
+
+                //the fifth parameter adjusts power of the stinger
+                abstractStinger.shootFromRotation(usingEntity, usingEntity.getXRot(), usingEntity.getYRot(), 0.0F, 3, 1.0F);
+                //damage of the stinger
+                abstractStinger.setBaseDamage(2.0D);
+                //knockback of the stinger
+                abstractStinger.setKnockback(2);
+                if(usingEntity.getTarget() != null && usingEntity.getTarget().isAlive()) {
+                    //successful target , make new stinger
+                    usingEntity.getLevel().addFreshEntity(abstractStinger);
+                    //stinger hurts after fire. I figured STARVE is best because it is hurting itself, though if it dies from
+                    //firing an arrow it will say "Queen Buzzlet Starved to death"
+                    usingEntity.hurt(DamageSource.STARVE, 1);
+                    //reset time to attack
+                    attackTime = 0;
+                    //reset cooldown timer
+                    cooldownTimer = 10;
+                }
+            }
+            attackTime++;
+        }
     }
 }

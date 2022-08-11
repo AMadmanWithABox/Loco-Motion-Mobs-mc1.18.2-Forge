@@ -22,7 +22,7 @@ public class EntityInit {
             EntityType.Builder.<QueenBuzzlet>of(QueenBuzzlet::new, MobCategory.MONSTER)
                 .setShouldReceiveVelocityUpdates(true)
                 .sized(2.5F, 2.0F)
-                .clientTrackingRange(10)
+                .clientTrackingRange(50)
                 .setCustomClientFactory(QueenBuzzlet::new));
 
     //My final problem was everything below here. The game did not know what the attributes of the mob were and therefore could not spawn it.
