@@ -26,12 +26,18 @@ import net.minecraftforge.network.NetworkHooks;
 import net.minecraftforge.network.PlayMessages;
 
 
+
 public class QueenBuzzlet extends Monster {
     //I believe that this is what you use to tell the game that this Monster is flying
     private static final EntityDataAccessor<Boolean> FLYING = SynchedEntityData.defineId(QueenBuzzlet.class, EntityDataSerializers.BOOLEAN);
+    private QueenBuzzletPhase phase;
     private final ServerBossEvent bossInfo = new ServerBossEvent(this.getDisplayName(),
             ServerBossEvent.BossBarColor.WHITE,
-            ServerBossEvent.BossBarOverlay.PROGRESS);
+            ServerBossEvent.BossBarOverlay.NOTCHED_6);
+
+private enum QueenBuzzletPhase{
+    FULL, HALF, QUARTER
+}
 
     public QueenBuzzlet(PlayMessages.SpawnEntity packet, Level world){
         this(EntityInit.QUEEN_BUZZLET.get(), world);
@@ -143,6 +149,17 @@ public class QueenBuzzlet extends Monster {
             if(getHealth() < getMaxHealth())
                 this.heal(0.1f);
         }
+
+        if(this.getHealth() > this.getMaxHealth() / 2){
+            //bossInfo.getPlayers().forEach(p -> {p.connection.send(new ClientboundChatPacket(new TextComponent("Queen Buzzlet is in Phase Full"), ChatType.CHAT, p.getUUID()));});
+            this.phase = QueenBuzzletPhase.FULL;
+        } else if(this.getHealth() < this.getMaxHealth() / 2 && this.getHealth() > this.getMaxHealth() / 4){
+            //bossInfo.getPlayers().forEach(p -> {p.connection.send(new ClientboundChatPacket(new TextComponent("Queen Buzzlet is in Phase Half"), ChatType.CHAT, p.getUUID()));});
+            this.phase = QueenBuzzletPhase.HALF;
+        } else if(this.getHealth() < this.getMaxHealth() / 4){
+            //bossInfo.getPlayers().forEach(p -> {p.connection.send(new ClientboundChatPacket(new TextComponent("Queen Buzzlet is in Phase Quarter"), ChatType.CHAT, p.getUUID()));});
+            this.phase = QueenBuzzletPhase.QUARTER;
+        }
     }
 
 
@@ -232,4 +249,5 @@ public class QueenBuzzlet extends Monster {
             attackTime++;
         }
     }
+
 }
