@@ -1,11 +1,9 @@
 package com.fcs.locomotionmobs.entities;
 
 import com.fcs.locomotionmobs.init.EntityInit;
+import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.TextComponent;
 import net.minecraft.network.protocol.Packet;
-import net.minecraft.network.syncher.EntityDataAccessor;
-import net.minecraft.network.syncher.EntityDataSerializers;
-import net.minecraft.network.syncher.SynchedEntityData;
 import net.minecraft.server.level.ServerBossEvent;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.Difficulty;
@@ -15,6 +13,9 @@ import net.minecraft.world.entity.ai.attributes.AttributeSupplier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.ai.goal.*;
 import net.minecraft.world.entity.ai.goal.target.HurtByTargetGoal;
+import net.minecraft.world.entity.ai.util.AirAndWaterRandomPos;
+import net.minecraft.world.entity.ai.util.HoverRandomPos;
+import net.minecraft.world.entity.animal.FlyingAnimal;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.monster.Monster;
 import net.minecraft.world.entity.monster.RangedAttackMob;
@@ -22,13 +23,18 @@ import net.minecraft.world.entity.projectile.AbstractArrow;
 import net.minecraft.world.item.*;
 import net.minecraft.world.level.ItemLike;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.network.NetworkHooks;
 import net.minecraftforge.network.PlayMessages;
+import org.jetbrains.annotations.Nullable;
+
+import java.util.EnumSet;
+import java.util.Random;
+import java.util.UUID;
 
 
-public class QueenBuzzlet extends Monster {
+public class QueenBuzzlet extends Monster implements FlyingAnimal, NeutralMob {
     //I believe that this is what you use to tell the game that this Monster is flying
-    private static final EntityDataAccessor<Boolean> FLYING = SynchedEntityData.defineId(QueenBuzzlet.class, EntityDataSerializers.BOOLEAN);
     private final ServerBossEvent bossInfo = new ServerBossEvent(this.getDisplayName(),
             ServerBossEvent.BossBarColor.WHITE,
             ServerBossEvent.BossBarOverlay.PROGRESS);
@@ -41,8 +47,25 @@ public class QueenBuzzlet extends Monster {
         xpReward = 100;
         setCustomName(new TextComponent("Queen Buzzlet"));
         setCustomNameVisible(true);
+        setNoGravity(true);
         //set this to false to enable AI. I was using this to adjust the hit box and the model
         setNoAi(false);
+    }
+
+    @Override
+    protected void registerGoals() {
+        super.registerGoals();
+        this.goalSelector.addGoal(1, new MeleeAttackGoal(this, 1.2, false) {
+            @Override
+            protected double getAttackReachSqr(LivingEntity entity) {
+                return (double) (4.0 + entity.getBbWidth() * entity.getBbWidth());
+            }
+        });
+        this.goalSelector.addGoal(1, new RandomFlyGoal());
+        this.targetSelector.addGoal(3, new HurtByTargetGoal(this));
+        this.goalSelector.addGoal(4, new RandomLookAroundGoal(this));
+        this.goalSelector.addGoal(5, new FloatGoal(this));
+        this.goalSelector.addGoal(2, new StingerAttackGoal<>(this, 1.0D, 10, 15));
     }
 
     protected void dropCustomDeathLoot(DamageSource p_31464_, int p_31465_, boolean p_31466_) {
@@ -73,21 +96,7 @@ public class QueenBuzzlet extends Monster {
 
     // During my research I found a bunch of methods you guys may want to use
     // This first one is obviously for registering goals for the ai to use
-    @Override
-    protected void registerGoals() {
-        super.registerGoals();
-        this.goalSelector.addGoal(1, new MeleeAttackGoal(this, 1.2, false) {
-            @Override
-            protected double getAttackReachSqr(LivingEntity entity) {
-                return (double) (4.0 + entity.getBbWidth() * entity.getBbWidth());
-            }
-        });
-        this.goalSelector.addGoal(2, new RandomStrollGoal(this, 1));
-        this.targetSelector.addGoal(3, new HurtByTargetGoal(this));
-        this.goalSelector.addGoal(4, new RandomLookAroundGoal(this));
-        this.goalSelector.addGoal(5, new FloatGoal(this));
-        this.goalSelector.addGoal(1, new StingerAttackGoal<>(this, 1.0D, 10, 15));
-    }
+
 //
     //For ambient bee noises
 //    @Override
@@ -165,6 +174,37 @@ public class QueenBuzzlet extends Monster {
         return builder;
     }
 
+    @Override
+    public boolean isFlying() {
+        return !this.onGround;
+    }
+
+    @Override
+    public int getRemainingPersistentAngerTime() {
+        return 0;
+    }
+
+    @Override
+    public void setRemainingPersistentAngerTime(int p_21673_) {
+
+    }
+
+    @Nullable
+    @Override
+    public UUID getPersistentAngerTarget() {
+        return null;
+    }
+
+    @Override
+    public void setPersistentAngerTarget(@Nullable UUID p_21672_) {
+
+    }
+
+    @Override
+    public void startPersistentAngerTimer() {
+
+    }
+
     public class StingerAttackGoal<T extends Mob & RangedAttackMob> extends RangedBowAttackGoal{
         //used to simulate charging a shot. this is just the timer
         private int attackTime = -1;
@@ -191,6 +231,9 @@ public class QueenBuzzlet extends Monster {
         @Override
         public boolean canUse() {
             //check the cooldown timer to use
+            if(QueenBuzzlet.this.navigation.isInProgress()){
+                return false;
+            }
             if(cooldownTimer == 0) {
                 return true;
             }else {
@@ -231,5 +274,45 @@ public class QueenBuzzlet extends Monster {
             }
             attackTime++;
         }
+    }
+
+    public class RandomFlyGoal extends Goal{
+        private int cooldown = 0;
+
+        RandomFlyGoal(){
+            this.setFlags(EnumSet.of(Goal.Flag.MOVE));
+        }
+
+        @Override
+        public boolean canUse() {
+            if(cooldown <= 0) {
+                return QueenBuzzlet.this.navigation.isDone();
+            }
+            else{
+                cooldown--;
+                return false;
+            }
+        }
+
+        @Override
+        public boolean canContinueToUse(){
+            return QueenBuzzlet.this.navigation.isInProgress();
+        }
+
+        @Override
+        public void start(){
+            Vec3 randomPosition = this.findPos();
+            if(randomPosition != null) {
+                QueenBuzzlet.this.navigation.moveTo(QueenBuzzlet.this.navigation.createPath(new BlockPos(randomPosition), 3), 3.0D);
+                cooldown = 10;
+            }
+        }
+
+        private Vec3 findPos(){
+            Vec3 position = QueenBuzzlet.this.getViewVector(0.0F + new Random().nextFloat(-1.0F, 1.0F));
+            Vec3 randomPosition = HoverRandomPos.getPos(QueenBuzzlet.this, 10, 5, position.x, position.z, ((float)Math.PI / 3F), 1, 1);
+            return randomPosition != null ? randomPosition : AirAndWaterRandomPos.getPos(QueenBuzzlet.this, 8, 4, 2, position.x, position.z, (double)((float)Math.PI / 2F));
+        }
+
     }
 }
