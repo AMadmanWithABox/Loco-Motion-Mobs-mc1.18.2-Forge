@@ -10,6 +10,9 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerBossEvent;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvent;
+import net.minecraft.sounds.SoundEvent;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.util.Mth;
 import net.minecraft.world.Difficulty;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.*;
@@ -17,10 +20,15 @@ import net.minecraft.world.entity.ai.attributes.AttributeSupplier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.ai.behavior.StartAttacking;
 import net.minecraft.world.entity.ai.control.MoveControl;
+import net.minecraft.world.entity.ai.control.FlyingMoveControl;
 import net.minecraft.world.entity.ai.goal.*;
 import net.minecraft.world.entity.ai.goal.target.HurtByTargetGoal;
 import net.minecraft.world.entity.ai.memory.WalkTarget;
 import net.minecraft.world.entity.animal.PolarBear;
+import net.minecraft.world.entity.boss.wither.WitherBoss;
+import net.minecraft.world.entity.ambient.Bat;
+import net.minecraft.world.entity.animal.Bee;
+import net.minecraft.world.entity.animal.FlyingAnimal;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.monster.Ghast;
 import net.minecraft.world.entity.monster.Monster;
@@ -29,8 +37,12 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.entity.projectile.AbstractArrow;
 import net.minecraft.world.item.*;
 import net.minecraft.world.level.ItemLike;
+import net.minecraft.world.entity.monster.*;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 import net.minecraft.world.level.Level;
 import net.minecraftforge.event.entity.player.PlayerEvent;
+import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.network.NetworkHooks;
 import net.minecraftforge.network.PlayMessages;
 import net.minecraftforge.registries.ForgeRegistries;
@@ -42,6 +54,7 @@ import java.util.Random;
 public class QueenBuzzlet extends Monster {
     //I believe that this is what you use to tell the game that this Monster is flying
     private static final EntityDataAccessor<Boolean> FLYING = SynchedEntityData.defineId(QueenBuzzlet.class, EntityDataSerializers.BOOLEAN);
+
     private final ServerBossEvent bossInfo = new ServerBossEvent(this.getDisplayName(),
             ServerBossEvent.BossBarColor.WHITE,
             ServerBossEvent.BossBarOverlay.PROGRESS);
@@ -54,9 +67,9 @@ public class QueenBuzzlet extends Monster {
         xpReward = 100;
         setCustomName(new TextComponent("Queen Buzzlet"));
         setCustomNameVisible(true);
+        this.moveControl = new FlyingMoveControl(this, 20 , true);
         //set this to false to enable AI. I was using this to adjust the hit box and the model
         setNoAi(false);
-        isNoGravity();
     }
 
     protected void dropCustomDeathLoot(DamageSource p_31464_, int p_31465_, boolean p_31466_) {
@@ -90,7 +103,7 @@ public class QueenBuzzlet extends Monster {
     @Override
     protected void registerGoals() {
         super.registerGoals();
-        this.goalSelector.addGoal(1, new MeleeAttackGoal(this, 1.2, false) {
+        this.goalSelector.addGoal(2, new MeleeAttackGoal(this, 1.2, false) {
             @Override
             protected double getAttackReachSqr(LivingEntity entity) {
                 return (double) (4.0 + entity.getBbWidth() * entity.getBbWidth());
@@ -100,7 +113,7 @@ public class QueenBuzzlet extends Monster {
         this.targetSelector.addGoal(3, new HurtByTargetGoal(this));
         this.goalSelector.addGoal(4, new RandomLookAroundGoal(this));
         this.goalSelector.addGoal(5, new FloatGoal(this));
-        this.goalSelector.addGoal(1, new StingerAttackGoal<>(this, 1.0D, 10, 15));
+        this.goalSelector.addGoal(1, new StingerAttackGoal<>(this, 1.0D, 20, 15));
     }
 
     static class RandomFloatAroundGoal extends Goal {
@@ -210,6 +223,7 @@ public class QueenBuzzlet extends Monster {
         builder = builder.add(Attributes.MAX_HEALTH, 300);
         builder = builder.add(Attributes.ARMOR, 0);
         builder = builder.add(Attributes.ATTACK_DAMAGE, 3);
+        builder = builder.add(Attributes.FLYING_SPEED, 1.2F);
         builder = builder.add(Attributes.FOLLOW_RANGE, 25);
         return builder;
     }
@@ -223,12 +237,7 @@ public class QueenBuzzlet extends Monster {
         //setting up a cooldown timer so Queen Buzzlet doesn't just spam arrows
         private int cooldownTimer = 0;
         //yes game, Queen Buzzlet totally has "Arrows" in its inventory
-        private ItemStack stingers = new ItemStack(new ItemLike() {
-            @Override
-            public Item asItem() {
-                return Items.ARROW;
-            }
-        });
+        private ItemStack stingers = new ItemStack(() -> Items.ARROW);
         private QueenBuzzlet usingEntity;
         private final int attackInterval;
         public StingerAttackGoal(QueenBuzzlet usingEntity, double speedMod, int attackInterval, float attackRadius) {
@@ -256,26 +265,39 @@ public class QueenBuzzlet extends Monster {
 
         @Override
         public void tick() {
+            LivingEntity target = usingEntity.getTarget();
             super.tick();
             if(attackTime > attackInterval){
                 AbstractArrow abstractStinger = stinger.createArrow(usingEntity.getLevel(), stingers, usingEntity);
 
                 //the fifth parameter adjusts power of the stinger
-                abstractStinger.shootFromRotation(usingEntity, usingEntity.getXRot(), usingEntity.getYRot(), 0.0F, 3, 1.0F);
-                //damage of the stinger
+                //abstractStinger.shootFromRotation(usingEntity, usingEntity.getXRot(), usingEntity.getYRot(), 0.0F, 3, 1.0F);
+                //the damage dealt by the stinger
                 abstractStinger.setBaseDamage(2.0D);
                 //knockback of the stinger
                 abstractStinger.setKnockback(2);
-                if(usingEntity.getTarget() != null && usingEntity.getTarget().isAlive()) {
-                    //successful target , make new stinger
-                    usingEntity.getLevel().addFreshEntity(abstractStinger);
-                    //stinger hurts after fire. I figured STARVE is best because it is hurting itself, though if it dies from
-                    //firing an arrow it will say "Queen Buzzlet Starved to death"
-                    usingEntity.hurt(DamageSource.STARVE, 1);
-                    //reset time to attack
-                    attackTime = 0;
-                    //reset cooldown timer
-                    cooldownTimer = 10;
+                if(target != null && target.isAlive()){
+                    usingEntity.getLookControl().setLookAt(target);
+                    if(usingEntity.getLookControl().isLookingAtTarget()) {
+                        //These 4 variables get the distances to pass into the shoot method
+                        //From here to abstractStinger.shoot(double, double, double, float, float) is from the Skeleton class
+                        double targetX = target.getX() - usingEntity.getX();
+                        double targetY = target.getY((1.0D / 3.0D)) - abstractStinger.getY();
+                        double targetZ = target.getZ() - usingEntity.getZ();
+                        double targetLine = Math.sqrt((targetX * targetX) + (targetZ * targetZ));
+                        //The 4th parameter seems to set the damage, and my best estimate of the 5th is some sort of scaling based on difficulty (maybe accuracy)
+                        abstractStinger.shoot(targetX, targetY + targetLine * 0.2D, targetZ, 2.0F, (float) (14 - usingEntity.level.getDifficulty().getId() * 4));
+
+                        //successful target , make new stinger
+                        usingEntity.getLevel().addFreshEntity(abstractStinger);
+                        //stinger hurts after fire. I figured STARVE is best because it is hurting itself, though if it dies from
+                        //firing an arrow it will say "Queen Buzzlet Starved to death"
+                        usingEntity.hurt(DamageSource.STARVE, 1);
+                        //reset time to attack
+                        attackTime = 0;
+                        //reset cooldown timer
+                        cooldownTimer = attackInterval;
+                    }
                 }
             }
             attackTime++;
