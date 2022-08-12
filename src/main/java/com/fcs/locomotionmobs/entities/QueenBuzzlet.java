@@ -6,24 +6,37 @@ import net.minecraft.network.protocol.Packet;
 import net.minecraft.network.syncher.EntityDataAccessor;
 import net.minecraft.network.syncher.EntityDataSerializers;
 import net.minecraft.network.syncher.SynchedEntityData;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerBossEvent;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.sounds.SoundEvent;
 import net.minecraft.world.Difficulty;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.*;
 import net.minecraft.world.entity.ai.attributes.AttributeSupplier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.entity.ai.behavior.StartAttacking;
+import net.minecraft.world.entity.ai.control.MoveControl;
 import net.minecraft.world.entity.ai.goal.*;
 import net.minecraft.world.entity.ai.goal.target.HurtByTargetGoal;
+import net.minecraft.world.entity.ai.memory.WalkTarget;
+import net.minecraft.world.entity.animal.PolarBear;
 import net.minecraft.world.entity.item.ItemEntity;
+import net.minecraft.world.entity.monster.Ghast;
 import net.minecraft.world.entity.monster.Monster;
 import net.minecraft.world.entity.monster.RangedAttackMob;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.entity.projectile.AbstractArrow;
 import net.minecraft.world.item.*;
 import net.minecraft.world.level.ItemLike;
 import net.minecraft.world.level.Level;
+import net.minecraftforge.event.entity.player.PlayerEvent;
 import net.minecraftforge.network.NetworkHooks;
 import net.minecraftforge.network.PlayMessages;
+import net.minecraftforge.registries.ForgeRegistries;
+
+import java.util.EnumSet;
+import java.util.Random;
 
 
 public class QueenBuzzlet extends Monster {
@@ -43,6 +56,7 @@ public class QueenBuzzlet extends Monster {
         setCustomNameVisible(true);
         //set this to false to enable AI. I was using this to adjust the hit box and the model
         setNoAi(false);
+        isNoGravity();
     }
 
     protected void dropCustomDeathLoot(DamageSource p_31464_, int p_31465_, boolean p_31466_) {
@@ -82,31 +96,65 @@ public class QueenBuzzlet extends Monster {
                 return (double) (4.0 + entity.getBbWidth() * entity.getBbWidth());
             }
         });
-        this.goalSelector.addGoal(2, new RandomStrollGoal(this, 1));
+        this.goalSelector.addGoal(0, new RandomFloatAroundGoal(this));
         this.targetSelector.addGoal(3, new HurtByTargetGoal(this));
         this.goalSelector.addGoal(4, new RandomLookAroundGoal(this));
         this.goalSelector.addGoal(5, new FloatGoal(this));
         this.goalSelector.addGoal(1, new StingerAttackGoal<>(this, 1.0D, 10, 15));
     }
-//
-    //For ambient bee noises
-//    @Override
-//    public SoundEvent getAmbientSound() {
-//        return ForgeRegistries.SOUND_EVENTS.getValue(new ResourceLocation("entity.bee.loop"));
-//    }
-//
-    //for getting hurt noises
-//    @Override
-//    public SoundEvent getHurtSound(DamageSource ds) {
-//        return ForgeRegistries.SOUND_EVENTS.getValue(new ResourceLocation("entity.generic.hurt"));
-//    }
-//
-    //for death noises
-//    @Override
-//    public SoundEvent getDeathSound() {
-//        return ForgeRegistries.SOUND_EVENTS.getValue(new ResourceLocation("entity.generic.death"));
-//    }
-//
+
+    static class RandomFloatAroundGoal extends Goal {
+        private final QueenBuzzlet buzzlet;
+
+        public RandomFloatAroundGoal(QueenBuzzlet p_32783_) {
+            this.buzzlet = p_32783_;
+            this.setFlags(EnumSet.of(Flag.MOVE));
+        }
+
+        public boolean canUse() {
+            MoveControl movecontrol = this.buzzlet.getMoveControl();
+            if (!movecontrol.hasWanted()) {
+                return true;
+            } else {
+                double d0 = movecontrol.getWantedX() - this.buzzlet.getX();
+                double d1 = movecontrol.getWantedY() - this.buzzlet.getY();
+                double d2 = movecontrol.getWantedZ() - this.buzzlet.getZ();
+                double d3 = d0 * d0 + d1 * d1 + d2 * d2;
+                return d3 < 1.0D || d3 > 3600.0D;
+            }
+        }
+
+        public boolean canContinueToUse() {
+            return false;
+        }
+
+        public void start() {
+            Random random = this.buzzlet.getRandom();
+            double d0 = this.buzzlet.getX() + (double)((random.nextFloat() * 2.0F - 1.0F) * 16.0F);
+            double d1 = this.buzzlet.getY() + (double)((random.nextFloat() * 2.0F - 1.0F) * 16.0F);
+            double d2 = this.buzzlet.getZ() + (double)((random.nextFloat() * 2.0F - 1.0F) * 16.0F);
+            this.buzzlet.getMoveControl().setWantedPosition(d0, d1, d2, 2.0D);
+        }
+    }
+
+    // For ambient bee noises
+    @Override
+    public SoundEvent getAmbientSound() {
+        return ForgeRegistries.SOUND_EVENTS.getValue(new ResourceLocation("entity.bee.loop"));
+    }
+
+    // for getting hurt noises
+    @Override
+    public SoundEvent getHurtSound(DamageSource ds) {
+        return ForgeRegistries.SOUND_EVENTS.getValue(new ResourceLocation("entity.generic.hurt"));
+    }
+
+    // for death noises
+    @Override
+    public SoundEvent getDeathSound() {
+        return ForgeRegistries.SOUND_EVENTS.getValue(new ResourceLocation("entity.generic.death"));
+    }
+
     //tells minecraft if this entity can go through a portal *Basically*
 //    @Override
 //    public boolean canChangeDimensions() {
@@ -162,6 +210,7 @@ public class QueenBuzzlet extends Monster {
         builder = builder.add(Attributes.MAX_HEALTH, 300);
         builder = builder.add(Attributes.ARMOR, 0);
         builder = builder.add(Attributes.ATTACK_DAMAGE, 3);
+        builder = builder.add(Attributes.FOLLOW_RANGE, 25);
         return builder;
     }
 
