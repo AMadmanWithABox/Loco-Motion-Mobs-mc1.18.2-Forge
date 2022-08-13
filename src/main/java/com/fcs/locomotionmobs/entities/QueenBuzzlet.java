@@ -98,6 +98,7 @@ public class QueenBuzzlet extends Monster implements FlyingAnimal{
         this.goalSelector.addGoal(0, new StingerAttackGoal<>(this, 1.0D, 10, 15));
         this.targetSelector.addGoal(1, new HurtByTargetGoal(this));
         this.goalSelector.addGoal(2, new RandomLookAroundGoal(this));
+        this.goalSelector.addGoal(3, new LookAtPlayerGoal(this, Player.class, 8.0F));
         this.goalSelector.addGoal(3, new FloatGoal(this));
         this.goalSelector.addGoal(4, new RandomFlyGoal());
     }
