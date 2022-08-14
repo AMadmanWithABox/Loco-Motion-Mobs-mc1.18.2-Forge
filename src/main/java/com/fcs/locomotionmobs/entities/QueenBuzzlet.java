@@ -36,26 +36,25 @@ import java.util.EnumSet;
 import java.util.Random;
 
 
-public class QueenBuzzlet extends Monster implements FlyingAnimal{
+public class QueenBuzzlet extends Monster implements FlyingAnimal {
     //I believe that this is what you use to tell the game that this Monster is flying
     private Vec3 hoverPos;
     private final ServerBossEvent bossInfo = new ServerBossEvent(this.getDisplayName(),
             ServerBossEvent.BossBarColor.WHITE,
             ServerBossEvent.BossBarOverlay.PROGRESS);
 
-    public QueenBuzzlet(PlayMessages.SpawnEntity packet, Level world){
+    public QueenBuzzlet(PlayMessages.SpawnEntity packet, Level world) {
         this(EntityInit.QUEEN_BUZZLET.get(), world);
     }
+
     public QueenBuzzlet(EntityType<QueenBuzzlet> entityType, Level level) {
         super(entityType, level);
         this.moveControl = new FlyingMoveControl(this, 20, true);
         xpReward = 100;
         setCustomName(new TextComponent("Queen Buzzlet"));
         setCustomNameVisible(true);
-        //setNoGravity(true);
         this.navigation.setCanFloat(true);
-        //set this to false to enable AI. I was using this to adjust the hit box and the model
-        //setNoAi(false);
+
     }
 
     @Override
@@ -68,12 +67,14 @@ public class QueenBuzzlet extends Monster implements FlyingAnimal{
             }
         });
 
-        this.goalSelector.addGoal(0, new StingerAttackGoal<>(this, 1.0D, 10, 15));
+        //this.goalSelector.addGoal(0, new StingerAttackGoal<>(this, 1.0D, 10, 15));
         this.targetSelector.addGoal(1, new HurtByTargetGoal(this));
         this.goalSelector.addGoal(2, new RandomLookAroundGoal(this));
         this.goalSelector.addGoal(3, new LookAtPlayerGoal(this, Player.class, 8.0F));
         this.goalSelector.addGoal(3, new FloatGoal(this));
         this.goalSelector.addGoal(4, new RandomFlyGoal());
+        this.goalSelector.addGoal(0, new QueenBuzzletSweepAttackGoal());
+
     }
 
     protected void dropCustomDeathLoot(DamageSource p_31464_, int p_31465_, boolean p_31466_) {
@@ -83,6 +84,7 @@ public class QueenBuzzlet extends Monster implements FlyingAnimal{
             itementity.setExtendedLifetime();
         }
     }
+
     @Override
     protected boolean shouldDespawnInPeaceful() {
         return false;
@@ -91,19 +93,19 @@ public class QueenBuzzlet extends Monster implements FlyingAnimal{
     //This is important for the game server to communicate with the client. Even though we are playing in single player,
     //this is necessary in order to spawn the Queen Buzzlet in.
     @Override
-    public Packet<?> getAddEntityPacket(){
+    public Packet<?> getAddEntityPacket() {
         return NetworkHooks.getEntitySpawningPacket(this);
     }
 
     @Override
     public void checkDespawn() {
-        if(this.level.getDifficulty() == Difficulty.PEACEFUL && this.shouldDespawnInPeaceful()){
+        if (this.level.getDifficulty() == Difficulty.PEACEFUL && this.shouldDespawnInPeaceful()) {
             discard();
         }
     }
 
     @Override
-    public boolean causeFallDamage(float funny, float numbers, DamageSource meansNothing){
+    public boolean causeFallDamage(float funny, float numbers, DamageSource meansNothing) {
         return false;
     }
 
@@ -115,7 +117,7 @@ public class QueenBuzzlet extends Monster implements FlyingAnimal{
     // During my research I found a bunch of methods you guys may want to use
     // This first one is obviously for registering goals for the ai to use
 
-//
+    //
     //For ambient bee noises
 //    @Override
 //    public SoundEvent getAmbientSound() {
@@ -141,9 +143,10 @@ public class QueenBuzzlet extends Monster implements FlyingAnimal{
 //    }
 //
     @Override
-    public MobType getMobType(){
+    public MobType getMobType() {
         return MobType.UNDEFINED;
     }
+
     //This is a method that is triggered when the player first sees the entity
     @Override
     public void startSeenByPlayer(ServerPlayer player) {
@@ -152,26 +155,25 @@ public class QueenBuzzlet extends Monster implements FlyingAnimal{
     }
 
     @Override
-    public void stopSeenByPlayer(ServerPlayer player){
+    public void stopSeenByPlayer(ServerPlayer player) {
         super.stopSeenByPlayer(player);
         bossInfo.removePlayer(player);
     }
 
     @Override
-    public void customServerAiStep(){
+    public void customServerAiStep() {
         super.customServerAiStep();
         this.bossInfo.setProgress(this.getHealth() / this.getMaxHealth());
     }
 
     @Override
-    public void tick(){
+    public void tick() {
         super.tick();
-        if(this.level.getNearestPlayer(this, 50) == null){
-            if(getHealth() < getMaxHealth())
+        if (this.level.getNearestPlayer(this, 50) == null) {
+            if (getHealth() < getMaxHealth())
                 this.heal(0.1f);
         }
     }
-
 
 
     //If we wanted to spawn our mob in naturally in the world, we would use this. This may be useful if we end up making more mobs
@@ -183,7 +185,7 @@ public class QueenBuzzlet extends Monster implements FlyingAnimal{
 
     //This is another important one. You can change the values in here to change the corresponding attribute,
     //but this is also something that is required to spawn Queen Buzzlet
-    public static AttributeSupplier.Builder createAttributes(){
+    public static AttributeSupplier.Builder createAttributes() {
         AttributeSupplier.Builder builder = Mob.createMobAttributes();
         builder = builder.add(Attributes.MOVEMENT_SPEED, 1F);
         builder = builder.add(Attributes.MAX_HEALTH, 300);
@@ -218,7 +220,7 @@ public class QueenBuzzlet extends Monster implements FlyingAnimal{
     }
 
 
-    public class StingerAttackGoal<T extends Mob & RangedAttackMob> extends RangedBowAttackGoal{
+    public class StingerAttackGoal<T extends Mob & RangedAttackMob> extends RangedBowAttackGoal {
         //used to simulate charging a shot. this is just the timer
         private int attackTime = -1;
         //this defines what an arrow is
@@ -230,6 +232,7 @@ public class QueenBuzzlet extends Monster implements FlyingAnimal{
         private ItemStack stingers = new ItemStack(() -> Items.ARROW);
         private QueenBuzzlet usingEntity;
         private final int attackInterval;
+
         public StingerAttackGoal(QueenBuzzlet usingEntity, double speedMod, int attackInterval, float attackRadius) {
             super(usingEntity, speedMod, attackInterval, attackRadius);
             this.attackInterval = attackInterval;
@@ -239,9 +242,9 @@ public class QueenBuzzlet extends Monster implements FlyingAnimal{
         @Override
         public boolean canUse() {
             //check the cooldown timer to use
-            if(cooldownTimer == 0) {
+            if (cooldownTimer == 0) {
                 return true;
-            }else {
+            } else {
                 cooldownTimer--;
                 return false;
             }
@@ -257,7 +260,7 @@ public class QueenBuzzlet extends Monster implements FlyingAnimal{
         public void tick() {
             LivingEntity target = usingEntity.getTarget();
             super.tick();
-            if(attackTime > attackInterval){
+            if (attackTime > attackInterval) {
                 AbstractArrow abstractStinger = stinger.createArrow(usingEntity.getLevel(), stingers, usingEntity);
 
                 //the fifth parameter adjusts power of the stinger
@@ -266,9 +269,9 @@ public class QueenBuzzlet extends Monster implements FlyingAnimal{
                 abstractStinger.setBaseDamage(2.0D);
                 //knockback of the stinger
                 abstractStinger.setKnockback(2);
-                if(target != null && target.isAlive()){
+                if (target != null && target.isAlive()) {
                     usingEntity.getLookControl().setLookAt(target);
-                    if(usingEntity.getLookControl().isLookingAtTarget()) {
+                    if (usingEntity.getLookControl().isLookingAtTarget()) {
                         //These 4 variables get the distances to pass into the shoot method
                         //From here to abstractStinger.shoot(double, double, double, float, float) is from the Skeleton class
                         double targetX = target.getX() - usingEntity.getX();
@@ -294,10 +297,10 @@ public class QueenBuzzlet extends Monster implements FlyingAnimal{
         }
     }
 
-    public class RandomFlyGoal extends Goal{
+    public class RandomFlyGoal extends Goal {
         //private int cooldown = 0;
 
-        RandomFlyGoal(){
+        RandomFlyGoal() {
             this.setFlags(EnumSet.of(Goal.Flag.MOVE));
         }
 
@@ -314,24 +317,73 @@ public class QueenBuzzlet extends Monster implements FlyingAnimal{
         }
 
         @Override
-        public boolean canContinueToUse(){
+        public boolean canContinueToUse() {
             return QueenBuzzlet.this.navigation.isInProgress();
         }
 
         @Override
-        public void start(){
+        public void start() {
             Vec3 randomPosition = this.findPos();
-            if(randomPosition != null) {
+            if (randomPosition != null) {
                 QueenBuzzlet.this.navigation.moveTo(QueenBuzzlet.this.navigation.createPath(new BlockPos(randomPosition), 3), 1.0D);
                 //cooldown = 10;
             }
         }
 
-        private Vec3 findPos(){
+        private Vec3 findPos() {
             Vec3 position = QueenBuzzlet.this.getViewVector(0.0F + new Random().nextFloat(-1.0F, 1.0F));
-            Vec3 randomPosition = HoverRandomPos.getPos(QueenBuzzlet.this, 8, 7, position.x, position.z, ((float)Math.PI / 3F), 3, 1);
-            return randomPosition != null ? randomPosition : AirAndWaterRandomPos.getPos(QueenBuzzlet.this, 8, 4, -2, position.x, position.z, (double)((float)Math.PI / 2F));
+            Vec3 randomPosition = HoverRandomPos.getPos(QueenBuzzlet.this, 8, 7, position.x, position.z, ((float) Math.PI / 3F), 3, 1);
+            return randomPosition != null ? randomPosition : AirAndWaterRandomPos.getPos(QueenBuzzlet.this, 8, 4, -2, position.x, position.z, (double) ((float) Math.PI / 2F));
         }
 
     }
+
+    class QueenBuzzletSweepAttackGoal extends Goal {
+
+        Vec3 moveTargetPoint = Vec3.ZERO;
+
+        public boolean canUse() {
+            return true;
+        }
+
+        public boolean canContinueToUse() {
+            LivingEntity livingentity = QueenBuzzlet.this.getTarget();
+            if (livingentity == null) {
+                return false;
+            } else if (!livingentity.isAlive()) {
+                return false;
+            } else {
+                if (livingentity instanceof Player) {
+                    Player player = (Player) livingentity;
+                    if (livingentity.isSpectator() || player.isCreative()) {
+                        return false;
+                    }
+                }
+
+                if (!this.canUse()) {
+                    return false;
+                }
+
+            }
+
+            return false;
+
+        }
+
+        public void tick() {
+            LivingEntity livingentity = QueenBuzzlet.this.getTarget();
+            if (livingentity != null) {
+                moveTargetPoint = new Vec3(livingentity.getX(), livingentity.getY(0.5D), livingentity.getZ());
+                if (QueenBuzzlet.this.getBoundingBox().inflate((double) 0.2F).intersects(livingentity.getBoundingBox())) {
+                    QueenBuzzlet.this.doHurtTarget(livingentity);
+                    if (!QueenBuzzlet.this.isSilent()) {
+                        QueenBuzzlet.this.level.levelEvent(1039, QueenBuzzlet.this.blockPosition(), 0);
+                    }
+                }
+
+            }
+        }
+    }
 }
+
+
