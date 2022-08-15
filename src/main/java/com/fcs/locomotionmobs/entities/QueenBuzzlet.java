@@ -6,6 +6,7 @@ import net.minecraft.network.chat.TextComponent;
 import net.minecraft.network.protocol.Packet;
 import net.minecraft.server.level.ServerBossEvent;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.BossEvent;
 import net.minecraft.world.Difficulty;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.*;
@@ -39,9 +40,14 @@ import java.util.Random;
 public class QueenBuzzlet extends Monster implements FlyingAnimal{
     //I believe that this is what you use to tell the game that this Monster is flying
     private Vec3 hoverPos;
+    private QueenBuzzletPhase phase;
     private final ServerBossEvent bossInfo = new ServerBossEvent(this.getDisplayName(),
             ServerBossEvent.BossBarColor.WHITE,
-            ServerBossEvent.BossBarOverlay.PROGRESS);
+            ServerBossEvent.BossBarOverlay.NOTCHED_6);
+
+    private enum QueenBuzzletPhase{
+        FULL, HALF, QUARTER
+    }
 
     public QueenBuzzlet(PlayMessages.SpawnEntity packet, Level world){
         this(EntityInit.QUEEN_BUZZLET.get(), world);
@@ -169,6 +175,17 @@ public class QueenBuzzlet extends Monster implements FlyingAnimal{
         if(this.level.getNearestPlayer(this, 50) == null){
             if(getHealth() < getMaxHealth())
                 this.heal(0.1f);
+        }
+
+        if(this.getHealth() > this.getMaxHealth() / 2){
+            //bossInfo.getPlayers().forEach(p -> {p.connection.send(new ClientboundChatPacket(new TextComponent("Queen Buzzlet is in Phase Full"), ChatType.CHAT, p.getUUID()));});
+            this.phase = QueenBuzzletPhase.FULL;
+        } else if(this.getHealth() < this.getMaxHealth() / 2 && this.getHealth() > this.getMaxHealth() / 4){
+            //bossInfo.getPlayers().forEach(p -> {p.connection.send(new ClientboundChatPacket(new TextComponent("Queen Buzzlet is in Phase Half"), ChatType.CHAT, p.getUUID()));});
+            this.phase = QueenBuzzletPhase.HALF;
+        } else if(this.getHealth() < this.getMaxHealth() / 4){
+            //bossInfo.getPlayers().forEach(p -> {p.connection.send(new ClientboundChatPacket(new TextComponent("Queen Buzzlet is in Phase Quarter"), ChatType.CHAT, p.getUUID()));});
+            this.phase = QueenBuzzletPhase.QUARTER;
         }
     }
 
