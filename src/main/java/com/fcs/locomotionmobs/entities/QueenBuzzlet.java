@@ -29,10 +29,15 @@ import net.minecraft.world.item.*;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.LevelReader;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.network.NetworkHooks;
 import net.minecraftforge.network.PlayMessages;
+import org.jetbrains.annotations.NotNull;
+
 import java.util.EnumSet;
 import java.util.Random;
 
@@ -350,5 +355,23 @@ public class QueenBuzzlet extends Monster implements FlyingAnimal{
             return randomPosition != null ? randomPosition : AirAndWaterRandomPos.getPos(QueenBuzzlet.this, 8, 4, -2, position.x, position.z, (double)((float)Math.PI / 2F));
         }
 
+    }
+
+    public class GoHomeGoal extends MoveToBlockGoal{
+
+        Block home = Blocks.POPPY;
+
+        public GoHomeGoal(PathfinderMob mob, double speedModifier, int searchRange, int verticalSearchRange) {
+            super(mob, speedModifier, searchRange, verticalSearchRange);
+        }
+
+        @Override
+        protected boolean isValidTarget(@NotNull LevelReader p_25619_, @NotNull BlockPos p_25620_) {
+            if(this.mob.getTarget() != null) {
+                return p_25619_.getBlockState(p_25620_).is(home) &&
+                        (Math.abs(p_25620_.getX() - this.mob.getTarget().getX()) >= 64 || Math.abs(p_25620_.getZ() - this.mob.getTarget().getZ()) >= 64);
+            }
+            return false;
+        }
     }
 }
