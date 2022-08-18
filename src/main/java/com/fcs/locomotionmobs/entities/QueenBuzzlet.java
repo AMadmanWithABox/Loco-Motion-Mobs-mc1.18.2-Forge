@@ -1,12 +1,13 @@
 package com.fcs.locomotionmobs.entities;
 
+import com.fcs.locomotionmobs.entities.util.QueenBuzzletEvent;
 import com.fcs.locomotionmobs.init.EntityInit;
+import com.google.common.collect.Sets;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.TextComponent;
 import net.minecraft.network.protocol.Packet;
 import net.minecraft.server.level.ServerBossEvent;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.BossEvent;
 import net.minecraft.world.Difficulty;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.*;
@@ -40,31 +41,57 @@ import org.jetbrains.annotations.NotNull;
 
 import java.util.EnumSet;
 import java.util.Random;
+import java.util.Set;
 
 
 public class QueenBuzzlet extends Monster implements FlyingAnimal{
-    //I believe that this is what you use to tell the game that this Monster is flying
-    private Vec3 hoverPos;
-    private QueenBuzzletPhase phase;
-    private final ServerBossEvent bossInfo = new ServerBossEvent(this.getDisplayName(),
-            ServerBossEvent.BossBarColor.WHITE,
-            ServerBossEvent.BossBarOverlay.NOTCHED_6);
-
-    private enum QueenBuzzletPhase{
-        FULL, HALF, QUARTER
-    }
+    private final EntityType<QueenBuzzlet> entityType;
+    private boolean isOwnerOfEvent;
+    protected static final float MOVEMENT_SPEED = 1F;
+    protected static final float FLYING_SPEED = 2F;
+    protected static final float MAX_HEALTH = 300;
+    protected static final float ATTACK_DAMAGE = 3;
+    protected static final float ARMOR = 1;
+    protected static final float FOLLOW_RANGE = 25;
+    protected final int SIZE;
+    private QueenBuzzletEvent event;
 
     public QueenBuzzlet(PlayMessages.SpawnEntity packet, Level world){
         this(EntityInit.QUEEN_BUZZLET.get(), world);
     }
     public QueenBuzzlet(EntityType<QueenBuzzlet> entityType, Level level) {
         super(entityType, level);
+        this.isOwnerOfEvent = true;
+        this.SIZE = 3;
+        this.entityType = entityType;
         this.moveControl = new FlyingMoveControl(this, 20, true);
         xpReward = 100;
         setCustomName(new TextComponent("Queen Buzzlet"));
         setCustomNameVisible(true);
         //setNoGravity(true);
         this.navigation.setCanFloat(true);
+        this.event = QueenBuzzletEvent.startNewEvent(this);
+        //set this to false to enable AI. I was using this to adjust the hit box and the model
+        //setNoAi(false);
+    }
+    //this is the constructor for the entity when it is spawned via the split method
+    public QueenBuzzlet(QueenBuzzlet parent, int size){
+        super(parent.entityType, parent.level);
+        this.entityType = parent.entityType;
+        this.moveControl = new FlyingMoveControl(this, 20, true);
+        this.SIZE = size;
+        xpReward = 100;
+        setCustomName(new TextComponent("Queen Buzzlet"));
+        setCustomNameVisible(true);
+        //setNoGravity(true);
+        this.navigation.setCanFloat(true);
+        this.event = parent.event;
+        if(size == 1) {
+            this.setHealth(parent.getHealth() / 4);
+        }
+        else if(size == 2){
+            this.setHealth(parent.getHealth() / 2);
+        }
         //set this to false to enable AI. I was using this to adjust the hit box and the model
         //setNoAi(false);
     }
@@ -85,6 +112,25 @@ public class QueenBuzzlet extends Monster implements FlyingAnimal{
         this.goalSelector.addGoal(3, new LookAtPlayerGoal(this, Player.class, 8.0F));
         this.goalSelector.addGoal(3, new FloatGoal(this));
         this.goalSelector.addGoal(4, new RandomFlyGoal());
+    }
+
+    public Set<QueenBuzzlet> split(int size){
+        Set<QueenBuzzlet> children = Sets.newHashSet();
+        children.add(new QueenBuzzlet(this, size));
+        if(size == 1){
+            children.add(new QueenBuzzlet(this, size));
+            children.add(new QueenBuzzlet(this, size));
+            children.add(new QueenBuzzlet(this, size));
+        }
+        for (QueenBuzzlet child : children) {
+            child.moveTo(this.getX(), this.getY() + 0.5D, this.getZ(), this.random.nextFloat() * 360.0F, 0.0F);
+            child.event = null;
+            child.isOwnerOfEvent = false;
+            child.setHealth(size == 1 ? this.getHealth() / 4 : this.getHealth() / 2);
+            this.level.addFreshEntity(child);
+        }
+
+        return children;
     }
 
     protected void dropCustomDeathLoot(DamageSource p_31464_, int p_31465_, boolean p_31466_) {
@@ -122,6 +168,11 @@ public class QueenBuzzlet extends Monster implements FlyingAnimal{
     protected void checkFallDamage(double these, boolean numbers, BlockState mean, BlockPos nothing) {
     }
 
+    //this is the method that is called when Queen Buzzlet reaches half health
+    //if Queen Buzzlet is at half health, it will split into two Queen Buzzlets
+    //each Queen Buzzlet will share the same BossEvent, but have their own amount of health
+    //the BossEvent will be updated to reflect the new health of both Queen Buzzlets combined
+
 
     // During my research I found a bunch of methods you guys may want to use
     // This first one is obviously for registering goals for the ai to use
@@ -151,6 +202,8 @@ public class QueenBuzzlet extends Monster implements FlyingAnimal{
 //        return false;
 //    }
 //
+
+
     @Override
     public MobType getMobType(){
         return MobType.UNDEFINED;
@@ -159,19 +212,23 @@ public class QueenBuzzlet extends Monster implements FlyingAnimal{
     @Override
     public void startSeenByPlayer(ServerPlayer player) {
         super.startSeenByPlayer(player);
-        bossInfo.addPlayer(player);
+        if(this.isOwnerOfEvent){
+            event.addPlayer(player);
+        }
+
     }
 
     @Override
     public void stopSeenByPlayer(ServerPlayer player){
         super.stopSeenByPlayer(player);
-        bossInfo.removePlayer(player);
+        if(this.isOwnerOfEvent){
+            event.removePlayer(player);
+        }
     }
 
     @Override
     public void customServerAiStep(){
         super.customServerAiStep();
-        this.bossInfo.setProgress(this.getHealth() / this.getMaxHealth());
     }
 
     @Override
@@ -182,15 +239,17 @@ public class QueenBuzzlet extends Monster implements FlyingAnimal{
                 this.heal(0.1f);
         }
 
-        if(this.getHealth() > this.getMaxHealth() / 2){
-            //bossInfo.getPlayers().forEach(p -> {p.connection.send(new ClientboundChatPacket(new TextComponent("Queen Buzzlet is in Phase Full"), ChatType.CHAT, p.getUUID()));});
-            this.phase = QueenBuzzletPhase.FULL;
-        } else if(this.getHealth() < this.getMaxHealth() / 2 && this.getHealth() > this.getMaxHealth() / 4){
-            //bossInfo.getPlayers().forEach(p -> {p.connection.send(new ClientboundChatPacket(new TextComponent("Queen Buzzlet is in Phase Half"), ChatType.CHAT, p.getUUID()));});
-            this.phase = QueenBuzzletPhase.HALF;
-        } else if(this.getHealth() < this.getMaxHealth() / 4){
-            //bossInfo.getPlayers().forEach(p -> {p.connection.send(new ClientboundChatPacket(new TextComponent("Queen Buzzlet is in Phase Quarter"), ChatType.CHAT, p.getUUID()));});
-            this.phase = QueenBuzzletPhase.QUARTER;
+
+        if (this.isOwnerOfEvent) {
+            event.tick();
+            if(this.getHealth() < 20) {
+                if (!event.canOwnerBeRemoved()){
+                    this.dead = false;
+                    this.setHealth(21);
+                } else{
+                    event.endEvent();
+                }
+            }
         }
     }
 
@@ -207,12 +266,12 @@ public class QueenBuzzlet extends Monster implements FlyingAnimal{
     //but this is also something that is required to spawn Queen Buzzlet
     public static AttributeSupplier.Builder createAttributes(){
         AttributeSupplier.Builder builder = Mob.createMobAttributes();
-        builder = builder.add(Attributes.MOVEMENT_SPEED, 1F);
-        builder = builder.add(Attributes.MAX_HEALTH, 300);
-        builder = builder.add(Attributes.ARMOR, 0);
-        builder = builder.add(Attributes.ATTACK_DAMAGE, 3);
-        builder = builder.add(Attributes.FLYING_SPEED, 2F);
-        builder = builder.add(Attributes.FOLLOW_RANGE, 25);
+        builder = builder.add(Attributes.MOVEMENT_SPEED, MOVEMENT_SPEED);
+        builder = builder.add(Attributes.MAX_HEALTH, MAX_HEALTH);
+        builder = builder.add(Attributes.ARMOR, ARMOR);
+        builder = builder.add(Attributes.ATTACK_DAMAGE, ATTACK_DAMAGE);
+        builder = builder.add(Attributes.FLYING_SPEED, FLYING_SPEED);
+        builder = builder.add(Attributes.FOLLOW_RANGE, FOLLOW_RANGE);
         return builder;
     }
 
@@ -238,6 +297,55 @@ public class QueenBuzzlet extends Monster implements FlyingAnimal{
         flyingpathnavigation.setCanPassDoors(true);
         return flyingpathnavigation;
     }
+
+    //this class is used to split the Queen Buzzlet into two when it reaches half health
+    //it is itself a QueenBuzzlet, and is spawned as a child of the parent entity
+    //the child entity will have the same attributes as the parent, but will have half the health
+    //the constructor for the child entity will take in the parent entity as a parameter
+    //the parent entity will be removed from the world, and the child entities will be added to the world
+    //the child entities will have the same position and rotation as the parent entity
+    //the child entities will have the same BossEvent as the parent entity
+    //the child entities will each have half the same health as the parent entity
+//    public class QueenBuzzletHalfChild extends QueenBuzzlet {
+//        protected final ServerBossEvent bossInfo;
+//        public QueenBuzzletHalfChild(QueenBuzzlet queenBuzzlet) {
+//            super((EntityType<QueenBuzzlet>) queenBuzzlet.getType(), queenBuzzlet.getLevel());
+//            this.setHealth(queenBuzzlet.getHealth() / 2);
+//            this.bossInfo = queenBuzzlet.bossInfo;
+//            this.setBoundingBox(queenBuzzlet.getBoundingBox());
+//            this.setPos(queenBuzzlet.getX(), queenBuzzlet.getY(), queenBuzzlet.getZ());
+//            this.setRot(queenBuzzlet.getXRot(), queenBuzzlet.getYRot());
+//            for(WrappedGoal goal : queenBuzzlet.goalSelector.getRunningGoals().toList()){
+//                this.goalSelector.addGoal(goal.getPriority(), goal.getGoal());
+//            }
+//            for(WrappedGoal goal : queenBuzzlet.targetSelector.getRunningGoals().toList()){
+//                this.targetSelector.addGoal(goal.getPriority(), goal.getGoal());
+//            }
+//        }
+//
+//        Raid
+//
+//        public static AttributeSupplier.Builder createAttributes(){
+//            AttributeSupplier.Builder builder = Mob.createMobAttributes();
+//            builder = builder.add(Attributes.MOVEMENT_SPEED, MOVEMENT_SPEED * 2);
+//            builder = builder.add(Attributes.MAX_HEALTH, MAX_HEALTH / 2);
+//            builder = builder.add(Attributes.ARMOR, ARMOR);
+//            builder = builder.add(Attributes.ATTACK_DAMAGE, ATTACK_DAMAGE / 2);
+//            builder = builder.add(Attributes.FLYING_SPEED, FLYING_SPEED * 2);
+//            builder = builder.add(Attributes.FOLLOW_RANGE, FOLLOW_RANGE);
+//            return builder;
+//        }
+//
+//        @Override
+//        public void tick(){
+//            super.tick();
+//            if(this.level.getNearestPlayer(this, 50) == null){
+//                if(getHealth() < getMaxHealth())
+//                    this.heal(0.1f);
+//            }
+//        }
+//    }
+
 
 
     public class StingerAttackGoal<T extends Mob & RangedAttackMob> extends RangedBowAttackGoal{
