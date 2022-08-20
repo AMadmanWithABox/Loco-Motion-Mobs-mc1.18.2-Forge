@@ -4,8 +4,13 @@ import com.fcs.locomotionmobs.entities.util.QueenBuzzletEvent;
 import com.fcs.locomotionmobs.init.EntityInit;
 import com.google.common.collect.Sets;
 import net.minecraft.core.BlockPos;
+import net.minecraft.network.chat.ChatType;
 import net.minecraft.network.chat.TextComponent;
 import net.minecraft.network.protocol.Packet;
+import net.minecraft.network.protocol.game.ClientboundChatPacket;
+import net.minecraft.network.syncher.EntityDataAccessor;
+import net.minecraft.network.syncher.EntityDataSerializers;
+import net.minecraft.network.syncher.SynchedEntityData;
 import net.minecraft.server.level.ServerBossEvent;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.Difficulty;
@@ -55,6 +60,16 @@ public class QueenBuzzlet extends Monster implements FlyingAnimal{
     protected static final float FOLLOW_RANGE = 25;
     protected final int SIZE;
     private QueenBuzzletEvent event;
+    //I believe that this is what you use to tell the game that this Monster is flying
+    private Vec3 hoverPos;
+    private QueenBuzzletPhase phase;
+    private final ServerBossEvent bossInfo = new ServerBossEvent(this.getDisplayName(),
+            ServerBossEvent.BossBarColor.WHITE,
+            ServerBossEvent.BossBarOverlay.PROGRESS);
+
+    private enum QueenBuzzletPhase{
+        FULL, HALF, QUARTER
+    }
 
     public QueenBuzzlet(PlayMessages.SpawnEntity packet, Level world){
         this(EntityInit.QUEEN_BUZZLET.get(), world);
@@ -106,12 +121,26 @@ public class QueenBuzzlet extends Monster implements FlyingAnimal{
             }
         });
 
-        this.goalSelector.addGoal(0, new StingerAttackGoal<>(this, 1.0D, 10, 15));
+        this.goalSelector.addGoal(0, new StingerAttackGoal<>(this, 1.0D, 30, 15));
         this.targetSelector.addGoal(1, new HurtByTargetGoal(this));
         this.goalSelector.addGoal(2, new RandomLookAroundGoal(this));
         this.goalSelector.addGoal(3, new LookAtPlayerGoal(this, Player.class, 8.0F));
         this.goalSelector.addGoal(3, new FloatGoal(this));
         this.goalSelector.addGoal(4, new RandomFlyGoal());
+        this.goalSelector.addGoal(2, new PanicGoal(this, 2){
+            @Override
+            public boolean canUse() {
+                bossInfo.getPlayers().forEach(p -> {p.connection.send(new ClientboundChatPacket(new TextComponent("Queen Buzzlet is trying Panicking"), ChatType.CHAT, p.getUUID()));});
+
+                return ((QueenBuzzlet)this.mob).phase == QueenBuzzletPhase.QUARTER && super.canUse();
+            }
+
+            @Override
+            public void start() {
+                bossInfo.getPlayers().forEach(p -> {p.connection.send(new ClientboundChatPacket(new TextComponent("Queen Buzzlet is Panicking"), ChatType.CHAT, p.getUUID()));});
+                super.start();
+            }
+        });
     }
 
     public Set<QueenBuzzlet> split(int size){
@@ -127,6 +156,7 @@ public class QueenBuzzlet extends Monster implements FlyingAnimal{
             child.event = null;
             child.isOwnerOfEvent = false;
             child.setHealth(size == 1 ? this.getHealth() / 4 : this.getHealth() / 2);
+            child.flyingSpeed = size == 1 ? 0.5f : 0.15F;
             this.level.addFreshEntity(child);
         }
 
@@ -173,6 +203,23 @@ public class QueenBuzzlet extends Monster implements FlyingAnimal{
     //each Queen Buzzlet will share the same BossEvent, but have their own amount of health
     //the BossEvent will be updated to reflect the new health of both Queen Buzzlets combined
 
+//    Currently, this is copied from the Slime class
+//    protected void setSize(int p_33594_, boolean p_33595_) {
+//        int i = Mth.clamp(p_33594_, 1, 127);
+//        this.entityData.set(ID_SIZE, i);
+//        this.reapplyPosition();
+//        this.refreshDimensions();
+//        this.getAttribute(Attributes.MAX_HEALTH).setBaseValue(this.getHealth()/2);
+//        if (p_33595_) {
+//            this.setHealth(this.getMaxHealth());
+//        }
+//        this.xpReward = i;
+//    }
+
+    public @NotNull EntityType<? extends QueenBuzzlet> getType() {
+        return (EntityType<? extends QueenBuzzlet>)super.getType();
+    }
+
 
     // During my research I found a bunch of methods you guys may want to use
     // This first one is obviously for registering goals for the ai to use
@@ -202,10 +249,8 @@ public class QueenBuzzlet extends Monster implements FlyingAnimal{
 //        return false;
 //    }
 //
-
-
     @Override
-    public MobType getMobType(){
+    public @NotNull MobType getMobType(){
         return MobType.UNDEFINED;
     }
     //This is a method that is triggered when the player first sees the entity
@@ -229,6 +274,7 @@ public class QueenBuzzlet extends Monster implements FlyingAnimal{
     @Override
     public void customServerAiStep(){
         super.customServerAiStep();
+        //this.bossInfo.setProgress(this.getHealth() / this.getMaxHealth());
     }
 
     @Override
@@ -253,8 +299,6 @@ public class QueenBuzzlet extends Monster implements FlyingAnimal{
         }
     }
 
-
-
     //If we wanted to spawn our mob in naturally in the world, we would use this. This may be useful if we end up making more mobs
 //    public static void init() {
 //        SpawnPlacements.register(EntityInit.QUEEN_BUZZLET.get(), SpawnPlacements.Type.ON_GROUND, Heightmap.Types.MOTION_BLOCKING_NO_LEAVES,
@@ -266,12 +310,12 @@ public class QueenBuzzlet extends Monster implements FlyingAnimal{
     //but this is also something that is required to spawn Queen Buzzlet
     public static AttributeSupplier.Builder createAttributes(){
         AttributeSupplier.Builder builder = Mob.createMobAttributes();
-        builder = builder.add(Attributes.MOVEMENT_SPEED, MOVEMENT_SPEED);
-        builder = builder.add(Attributes.MAX_HEALTH, MAX_HEALTH);
-        builder = builder.add(Attributes.ARMOR, ARMOR);
-        builder = builder.add(Attributes.ATTACK_DAMAGE, ATTACK_DAMAGE);
-        builder = builder.add(Attributes.FLYING_SPEED, FLYING_SPEED);
-        builder = builder.add(Attributes.FOLLOW_RANGE, FOLLOW_RANGE);
+        builder = builder.add(Attributes.MOVEMENT_SPEED, MOVEMENT_SPEED);//1f
+        builder = builder.add(Attributes.MAX_HEALTH, MAX_HEALTH);//300
+        builder = builder.add(Attributes.ARMOR, ARMOR);//0
+        builder = builder.add(Attributes.ATTACK_DAMAGE, ATTACK_DAMAGE);//3
+        builder = builder.add(Attributes.FLYING_SPEED, FLYING_SPEED);//2f
+        builder = builder.add(Attributes.FOLLOW_RANGE, FOLLOW_RANGE);//25
         return builder;
     }
 
