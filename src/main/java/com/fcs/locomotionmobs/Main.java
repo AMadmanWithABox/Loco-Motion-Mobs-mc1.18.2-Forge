@@ -4,7 +4,13 @@ import com.fcs.locomotionmobs.init.EntityInit;
 import com.fcs.locomotionmobs.init.ItemInit;
 import com.mojang.logging.LogUtils;
 import net.minecraft.world.entity.animal.Bee;
+import net.minecraft.world.entity.animal.IronGolem;
+import net.minecraft.world.entity.animal.Panda;
+import net.minecraft.world.entity.boss.enderdragon.EnderDragon;
 import net.minecraft.world.entity.boss.wither.WitherBoss;
+import net.minecraft.world.entity.monster.CaveSpider;
+import net.minecraft.world.entity.monster.EnderMan;
+import net.minecraft.world.entity.monster.piglin.Piglin;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraftforge.common.ForgeSpawnEggItem;
@@ -27,8 +33,7 @@ import java.util.stream.Collectors;
 
 // The value here should match an entry in the META-INF/mods.toml file
 @Mod(Main.MOD_ID)
-public class Main
-{
+public class Main {
     // Directly reference a slf4j logger
     private static final Logger LOGGER = LogUtils.getLogger();
 
