@@ -8,9 +8,7 @@ import net.minecraft.network.chat.ChatType;
 import net.minecraft.network.chat.TextComponent;
 import net.minecraft.network.protocol.Packet;
 import net.minecraft.network.protocol.game.ClientboundChatPacket;
-import net.minecraft.network.syncher.EntityDataAccessor;
-import net.minecraft.network.syncher.EntityDataSerializers;
-import net.minecraft.network.syncher.SynchedEntityData;
+import net.minecraft.server.commands.KillCommand;
 import net.minecraft.server.level.ServerBossEvent;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.Difficulty;
@@ -341,57 +339,6 @@ public class QueenBuzzlet extends Monster implements FlyingAnimal{
         flyingpathnavigation.setCanPassDoors(true);
         return flyingpathnavigation;
     }
-
-    //this class is used to split the Queen Buzzlet into two when it reaches half health
-    //it is itself a QueenBuzzlet, and is spawned as a child of the parent entity
-    //the child entity will have the same attributes as the parent, but will have half the health
-    //the constructor for the child entity will take in the parent entity as a parameter
-    //the parent entity will be removed from the world, and the child entities will be added to the world
-    //the child entities will have the same position and rotation as the parent entity
-    //the child entities will have the same BossEvent as the parent entity
-    //the child entities will each have half the same health as the parent entity
-//    public class QueenBuzzletHalfChild extends QueenBuzzlet {
-//        protected final ServerBossEvent bossInfo;
-//        public QueenBuzzletHalfChild(QueenBuzzlet queenBuzzlet) {
-//            super((EntityType<QueenBuzzlet>) queenBuzzlet.getType(), queenBuzzlet.getLevel());
-//            this.setHealth(queenBuzzlet.getHealth() / 2);
-//            this.bossInfo = queenBuzzlet.bossInfo;
-//            this.setBoundingBox(queenBuzzlet.getBoundingBox());
-//            this.setPos(queenBuzzlet.getX(), queenBuzzlet.getY(), queenBuzzlet.getZ());
-//            this.setRot(queenBuzzlet.getXRot(), queenBuzzlet.getYRot());
-//            for(WrappedGoal goal : queenBuzzlet.goalSelector.getRunningGoals().toList()){
-//                this.goalSelector.addGoal(goal.getPriority(), goal.getGoal());
-//            }
-//            for(WrappedGoal goal : queenBuzzlet.targetSelector.getRunningGoals().toList()){
-//                this.targetSelector.addGoal(goal.getPriority(), goal.getGoal());
-//            }
-//        }
-//
-//        Raid
-//
-//        public static AttributeSupplier.Builder createAttributes(){
-//            AttributeSupplier.Builder builder = Mob.createMobAttributes();
-//            builder = builder.add(Attributes.MOVEMENT_SPEED, MOVEMENT_SPEED * 2);
-//            builder = builder.add(Attributes.MAX_HEALTH, MAX_HEALTH / 2);
-//            builder = builder.add(Attributes.ARMOR, ARMOR);
-//            builder = builder.add(Attributes.ATTACK_DAMAGE, ATTACK_DAMAGE / 2);
-//            builder = builder.add(Attributes.FLYING_SPEED, FLYING_SPEED * 2);
-//            builder = builder.add(Attributes.FOLLOW_RANGE, FOLLOW_RANGE);
-//            return builder;
-//        }
-//
-//        @Override
-//        public void tick(){
-//            super.tick();
-//            if(this.level.getNearestPlayer(this, 50) == null){
-//                if(getHealth() < getMaxHealth())
-//                    this.heal(0.1f);
-//            }
-//        }
-//    }
-
-
-
     public class StingerAttackGoal<T extends Mob & RangedAttackMob> extends RangedBowAttackGoal{
         //used to simulate charging a shot. this is just the timer
         private int attackTime = -1;

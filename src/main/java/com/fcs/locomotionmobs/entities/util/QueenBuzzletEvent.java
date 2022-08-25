@@ -6,17 +6,11 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.ChatType;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.TextComponent;
-import net.minecraft.network.chat.TranslatableComponent;
 import net.minecraft.network.protocol.game.ClientboundChatPacket;
 import net.minecraft.server.level.ServerBossEvent;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.BossEvent;
 import net.minecraft.world.entity.Entity;
-import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
-
-
-import java.util.Objects;
 import java.util.Set;
 
 //This class is used to create a custom boss event for the Queen Buzzlet.
@@ -86,18 +80,6 @@ public class QueenBuzzletEvent {
             }
         }
 
-//        //if the owner is dying
-//        if(owner.getHealth() <= 20){
-//            //if the owner is the last entity in the set
-//            if(queenBuzzlets.stream().count() <= 1){
-//                //end the event
-//                this.endEvent();
-//            //if the owner is not the last entity in the set
-//            }else{
-//                //prevent the owner from being removed dying as it contains the event
-//                owner.setHealth(1);
-//            }
-//        }
         this.health = this.getTotalHealth();
         this.bossEvent.setProgress(this.health / MAX_HEALTH);
         if (this.phase == Phase.FULL && this.health + 4<= MAX_HEALTH / 2) {
@@ -125,9 +107,14 @@ public class QueenBuzzletEvent {
         return (long) this.queenBuzzlets.size() == 1;
     }
 
+//    public void selectNewOwner(){
+//
+//    }
+
+
     public void endEvent() {
         for (QueenBuzzlet queenBuzzlet : queenBuzzlets) {
-            queenBuzzlet.remove(Entity.RemovalReason.DISCARDED);
+            queenBuzzlet.remove(Entity.RemovalReason.KILLED);
         }
         this.queenBuzzlets.clear();
     }
