@@ -2,6 +2,7 @@ package com.fcs.locomotionmobs.init;
 
 import com.fcs.locomotionmobs.Main;
 import com.fcs.locomotionmobs.entities.QueenBuzzlet;
+import com.fcs.locomotionmobs.entities.QueenBuzzletStinger;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.MobCategory;
@@ -24,6 +25,11 @@ public class EntityInit {
                 .sized(2.5F, 2.0F)
                 .clientTrackingRange(50)
                 .setCustomClientFactory(QueenBuzzlet::new));
+
+    public static final RegistryObject<EntityType<QueenBuzzletStinger>> QUEEN_BUZZLET_STINGER = ENTITIES.register("queen_buzzlet_stinger",
+            () -> EntityType.Builder.of((EntityType.EntityFactory<QueenBuzzletStinger>) QueenBuzzletStinger::new, MobCategory.MISC)
+                    .sized(0.5F, 0.5F)
+                    .build("queen_buzzlet_stinger"));
 
     //My final problem was everything below here. The game did not know what the attributes of the mob were and therefore could not spawn it.
 
