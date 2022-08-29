@@ -23,6 +23,7 @@ import net.minecraft.world.entity.ai.attributes.AttributeSupplier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.ai.control.FlyingMoveControl;
 import net.minecraft.world.entity.ai.goal.*;
+import net.minecraft.world.entity.ai.goal.target.HurtByTargetGoal;
 import net.minecraft.world.entity.ai.navigation.FlyingPathNavigation;
 import net.minecraft.world.entity.ai.navigation.PathNavigation;
 import net.minecraft.world.entity.ai.util.AirRandomPos;
@@ -119,33 +120,33 @@ public class QueenBuzzlet extends Monster implements FlyingAnimal {
             }
         });
 
-//        this.targetSelector.addGoal(1, new StingerAttackGoal<>(this, 1.0D, 10, 25));
-//        this.targetSelector.addGoal(0, new HurtByTargetGoal(this));
-//        this.goalSelector.addGoal(2, new RandomLookAroundGoal(this));
-//        this.goalSelector.addGoal(4, new LookAtPlayerGoal(this, Player.class, 8.0F));
-//        this.goalSelector.addGoal(3, new FloatGoal(this));
-//        this.goalSelector.addGoal(2, new RandomFlyGoal());
+        this.targetSelector.addGoal(1, new StingerAttackGoal<>(this, 1.0D, 10, 25));
+        this.targetSelector.addGoal(0, new HurtByTargetGoal(this));
+        this.goalSelector.addGoal(2, new RandomLookAroundGoal(this));
+        this.goalSelector.addGoal(4, new LookAtPlayerGoal(this, Player.class, 8.0F));
+        this.goalSelector.addGoal(3, new FloatGoal(this));
+        this.goalSelector.addGoal(2, new RandomFlyGoal());
         this.goalSelector.addGoal(0, new QueenBuzzlet.QueenLocateHiveGoal());
         this.goToBaseGoal = new QueenBuzzlet.QueenGoToHiveGoal();
         this.goalSelector.addGoal(0, this.goToBaseGoal);
-//        this.goalSelector.addGoal(2, new PanicGoal(this, 2) {
-//            @Override
-//            public boolean canUse() {
-//                bossEvent.getPlayers().forEach(p -> {
-//                    p.connection.send(new ClientboundChatPacket(new TextComponent("Queen Buzzlet is trying Panicking"), ChatType.CHAT, p.getUUID()));
-//                });
-//
-//                return ((QueenBuzzlet) this.mob).phase == QueenBuzzletPhase.QUARTER && super.canUse();
-//            }
-//
-//            @Override
-//            public void start() {
-//                bossEvent.getPlayers().forEach(p -> {
-//                    p.connection.send(new ClientboundChatPacket(new TextComponent("Queen Buzzlet is Panicking"), ChatType.CHAT, p.getUUID()));
-//                });
-//                super.start();
-//            }
-//        });
+        this.goalSelector.addGoal(2, new PanicGoal(this, 2) {
+            @Override
+            public boolean canUse() {
+                bossEvent.getPlayers().forEach(p -> {
+                    p.connection.send(new ClientboundChatPacket(new TextComponent("Queen Buzzlet is trying Panicking"), ChatType.CHAT, p.getUUID()));
+                });
+
+                return ((QueenBuzzlet) this.mob).phase == QueenBuzzletPhase.QUARTER && super.canUse();
+            }
+
+            @Override
+            public void start() {
+                bossEvent.getPlayers().forEach(p -> {
+                    p.connection.send(new ClientboundChatPacket(new TextComponent("Queen Buzzlet is Panicking"), ChatType.CHAT, p.getUUID()));
+                });
+                super.start();
+            }
+        });
 
         //this.goalSelector.addGoal(0, new RandomFlyGoal());
         this.targetSelector.addGoal(1, new QueenBuzzletSweepAttackGoal());
