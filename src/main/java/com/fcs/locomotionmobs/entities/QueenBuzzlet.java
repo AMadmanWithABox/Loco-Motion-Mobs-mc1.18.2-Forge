@@ -3,6 +3,7 @@ package com.fcs.locomotionmobs.entities;
 import com.fcs.locomotionmobs.entities.ai.DirectPathNavigator;
 import com.fcs.locomotionmobs.entities.ai.GroundPathNavigatorWide;
 import com.fcs.locomotionmobs.init.EntityInit;
+import com.fcs.locomotionmobs.init.ItemInit;
 import com.google.common.collect.Lists;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.ChatType;
@@ -42,9 +43,7 @@ import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.monster.Monster;
 import net.minecraft.world.entity.monster.RangedAttackMob;
 import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.entity.projectile.AbstractArrow;
 import net.minecraft.world.entity.projectile.ThrownPotion;
-import net.minecraft.world.item.*;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.alchemy.PotionUtils;
@@ -65,7 +64,6 @@ import org.jetbrains.annotations.NotNull;
 import java.util.Comparator;
 import java.util.EnumSet;
 import java.util.List;
-import java.util.Random;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -86,7 +84,6 @@ public class QueenBuzzlet extends Monster implements FlyingAnimal, RangedAttackM
     private final ServerBossEvent bossEvent = new ServerBossEvent(QUEEN_BUZZLET_EVENT_TITLE,
             ServerBossEvent.BossBarColor.PURPLE,
             ServerBossEvent.BossBarOverlay.NOTCHED_6);
-
     private QueenBuzzletPhase phase;
     private boolean isLandNavigator;
     private int timeFlying;
@@ -103,7 +100,7 @@ public class QueenBuzzlet extends Monster implements FlyingAnimal, RangedAttackM
     private float birdPitch;
     private QueenGoToHiveGoal goToBaseGoal;
 
-
+    @Override
     public void performRangedAttack(LivingEntity p_33317_, float p_33318_) {
         ThrownPotion potion = new ThrownPotion(this.level, this);
         Vec3 vec3 = p_33317_.getDeltaMovement();
@@ -117,11 +114,11 @@ public class QueenBuzzlet extends Monster implements FlyingAnimal, RangedAttackM
         this.level.addFreshEntity(potion);
     }
 
-    private enum QueenBuzzletPhase {
+    private enum QueenBuzzletPhase{
         FULL, HALF, QUARTER
     }
 
-    public QueenBuzzlet(PlayMessages.SpawnEntity packet, Level world) {
+    public QueenBuzzlet(PlayMessages.SpawnEntity packet, Level world){
         this(EntityInit.QUEEN_BUZZLET.get(), world);
     }
 
@@ -158,12 +155,13 @@ public class QueenBuzzlet extends Monster implements FlyingAnimal, RangedAttackM
         super.registerGoals();
         this.targetSelector.addGoal(1, new MeleeAttackGoal(this, 1.2, true) {
             @Override
-            protected double getAttackReachSqr(LivingEntity entity) {
-                return (double) (5.0 + entity.getBbWidth() * entity.getBbWidth());
+            protected double getAttackReachSqr(@NotNull LivingEntity entity) {
+                return (5.0 + entity.getBbWidth() * entity.getBbWidth());
             }
         });
 
-        this.targetSelector.addGoal(1, new StingerAttackGoal<>(this, 1.0D, 10, 25));
+        this.targetSelector.addGoal(1, new RangedAttackGoal(this, 1.0D, 20, 40, 15));
+        this.targetSelector.addGoal(1, new StingerAttackGoal<QueenBuzzlet>(this, 1.0D, 10, 25));
         this.targetSelector.addGoal(0, new HurtByTargetGoal(this));
         this.goalSelector.addGoal(2, new RandomLookAroundGoal(this));
         this.goalSelector.addGoal(4, new LookAtPlayerGoal(this, Player.class, 8.0F));
@@ -176,18 +174,12 @@ public class QueenBuzzlet extends Monster implements FlyingAnimal, RangedAttackM
         this.goalSelector.addGoal(2, new PanicGoal(this, 2) {
             @Override
             public boolean canUse() {
-                bossEvent.getPlayers().forEach(p -> {
-                    p.connection.send(new ClientboundChatPacket(new TextComponent("Queen Buzzlet is trying Panicking"), ChatType.CHAT, p.getUUID()));
-                });
-
-                return ((QueenBuzzlet) this.mob).phase == QueenBuzzletPhase.QUARTER && super.canUse();
+                return ((QueenBuzzlet)this.mob).phase == QueenBuzzletPhase.QUARTER && super.canUse();
             }
 
             @Override
             public void start() {
-                bossEvent.getPlayers().forEach(p -> {
-                    p.connection.send(new ClientboundChatPacket(new TextComponent("Queen Buzzlet is Panicking"), ChatType.CHAT, p.getUUID()));
-                });
+                bossEvent.getPlayers().forEach(p -> p.connection.send(new ClientboundChatPacket(new TextComponent("Queen Buzzlet is Panicking"), ChatType.CHAT, p.getUUID())));
                 super.start();
             }
         });
@@ -195,7 +187,7 @@ public class QueenBuzzlet extends Monster implements FlyingAnimal, RangedAttackM
         this.targetSelector.addGoal(1, new QueenBuzzletSweepAttackGoal());
     }
 
-    protected void dropCustomDeathLoot(DamageSource p_31464_, int p_31465_, boolean p_31466_) {
+    protected void dropCustomDeathLoot(@NotNull DamageSource p_31464_, int p_31465_, boolean p_31466_) {
         super.dropCustomDeathLoot(p_31464_, p_31465_, p_31466_);
         ItemEntity itementity = this.spawnAtLocation(Items.ENCHANTED_GOLDEN_APPLE);
         if (itementity != null) {
@@ -210,24 +202,24 @@ public class QueenBuzzlet extends Monster implements FlyingAnimal, RangedAttackM
     //This is important for the game server to communicate with the client. Even though we are playing in single player,
     //this is necessary in order to spawn the Queen Buzzlet in.
     @Override
-    public Packet<?> getAddEntityPacket() {
+    public @NotNull Packet<?> getAddEntityPacket(){
         return NetworkHooks.getEntitySpawningPacket(this);
     }
 
     @Override
     public void checkDespawn() {
-        if (this.level.getDifficulty() == Difficulty.PEACEFUL && this.shouldDespawnInPeaceful()) {
+        if(this.level.getDifficulty() == Difficulty.PEACEFUL && this.shouldDespawnInPeaceful()){
             discard();
         }
     }
 
     @Override
-    public boolean causeFallDamage(float funny, float numbers, DamageSource meansNothing) {
+    public boolean causeFallDamage(float funny, float numbers, @NotNull DamageSource meansNothing){
         return false;
     }
 
     @Override
-    protected void checkFallDamage(double these, boolean numbers, BlockState mean, BlockPos nothing) {
+    protected void checkFallDamage(double these, boolean numbers, @NotNull BlockState mean, @NotNull BlockPos nothing) {
     }
 
     @Override
@@ -236,7 +228,7 @@ public class QueenBuzzlet extends Monster implements FlyingAnimal, RangedAttackM
     }
 
     @Override
-    public SoundEvent getHurtSound(DamageSource ds) {
+    public SoundEvent getHurtSound(@NotNull DamageSource ds) {
         return ForgeRegistries.SOUND_EVENTS.getValue(new ResourceLocation("entity.generic.hurt"));
     }
 
@@ -245,7 +237,7 @@ public class QueenBuzzlet extends Monster implements FlyingAnimal, RangedAttackM
     }
 
     public @NotNull EntityType<? extends QueenBuzzlet> getType() {
-        return (EntityType<? extends QueenBuzzlet>) super.getType();
+        return (EntityType<? extends QueenBuzzlet>)super.getType();
     }
 
     @Override
@@ -254,24 +246,25 @@ public class QueenBuzzlet extends Monster implements FlyingAnimal, RangedAttackM
     }
     //This is a method that is triggered when the player first sees the entity
     @Override
-    public void startSeenByPlayer(ServerPlayer player) {
+    public void startSeenByPlayer(@NotNull ServerPlayer player) {
         super.startSeenByPlayer(player);
         bossEvent.addPlayer(player);
 
     }
 
     @Override
-    public void stopSeenByPlayer(ServerPlayer player) {
+    public void stopSeenByPlayer(@NotNull ServerPlayer player){
         super.stopSeenByPlayer(player);
         bossEvent.removePlayer(player);
     }
 
     @Override
-    public void customServerAiStep() {
+    public void customServerAiStep(){
         super.customServerAiStep();
         this.bossEvent.setProgress(this.getHealth() / this.getMaxHealth());
     }
 
+    @Override
     public void tick(){
         super.tick();
 
@@ -475,7 +468,7 @@ public class QueenBuzzlet extends Monster implements FlyingAnimal, RangedAttackM
 
     //This Method was taken from net.minecraft.world.entity.animal.Bee;
     @Override
-    protected PathNavigation createNavigation(Level p_27815_) {
+    protected @NotNull PathNavigation createNavigation(@NotNull Level p_27815_) {
         FlyingPathNavigation flyingpathnavigation = new FlyingPathNavigation(this, p_27815_) {
             public boolean isStableDestination(BlockPos p_27947_) {
                 return !this.level.getBlockState(p_27947_.below()).isAir();
@@ -537,22 +530,30 @@ public class QueenBuzzlet extends Monster implements FlyingAnimal, RangedAttackM
     }
 
 
-    public class StingerAttackGoal<T extends Mob & RangedAttackMob> extends RangedBowAttackGoal {
+    public static class StingerAttackGoal<T extends net.minecraft.world.entity.Mob & RangedAttackMob> extends RangedBowAttackGoal<T>{
         //used to simulate charging a shot. this is just the timer
         private int attackTime = -1;
         //this defines what an arrow is
-        private ArrowItem stinger = (ArrowItem) Items.ARROW;
-
+        private final StingerItem stinger;
+        //private ArrowItem stinger = (ArrowItem)Items.ARROW;
         //setting up a cooldown timer so Queen Buzzlet doesn't just spam arrows
         private int cooldownTimer = 5;
         //yes game, Queen Buzzlet totally has "Arrows" in its inventory
-        private ItemStack stingers = new ItemStack(() -> Items.ARROW);
-        private QueenBuzzlet usingEntity;
+        private final ItemStack stingers;
+        private final QueenBuzzlet usingEntity;
         private final int attackInterval;
+
+        @Override
+        protected boolean isHoldingBow() {
+            return true;
+        }
+
         public StingerAttackGoal(QueenBuzzlet usingEntity, double speedMod, int attackInterval, float attackRadius) {
             super(usingEntity, speedMod, attackInterval, attackRadius);
             this.attackInterval = attackInterval;
             this.usingEntity = usingEntity;
+            stinger = (StingerItem) ItemInit.QUEEN_BUZZLET_STINGER.get();
+            stingers = new ItemStack(() -> stinger);
         }
 
         @Override
@@ -560,7 +561,7 @@ public class QueenBuzzlet extends Monster implements FlyingAnimal, RangedAttackM
             if(usingEntity.phase != QueenBuzzletPhase.QUARTER) {
                 //check the cooldown timer to use
                 if (cooldownTimer == 0) {
-                    return true;
+                    return super.canUse();
                 } else {
                     cooldownTimer--;
                     return false;
@@ -568,43 +569,35 @@ public class QueenBuzzlet extends Monster implements FlyingAnimal, RangedAttackM
             } else {
                 return false;
             }
-
-        }
-
-        @Override
-        protected boolean isHoldingBow() {
-            //yes game it's holding a "Bow"
-            return true;
         }
 
         @Override
         public void tick() {
             LivingEntity target = usingEntity.getTarget();
             super.tick();
-            if (attackTime > attackInterval) {
-                AbstractArrow abstractStinger = stinger.createArrow(usingEntity.getLevel(), stingers, usingEntity);
+            if(attackTime > attackInterval){
+                QueenBuzzletStinger fireableStinger = stinger.createStinger(usingEntity.getLevel(), stingers, usingEntity);
 
                 //the fifth parameter adjusts power of the stinger
                 //abstractStinger.shootFromRotation(usingEntity, usingEntity.getXRot(), usingEntity.getYRot(), 0.0F, 3, 1.0F);
                 //the damage dealt by the stinger
-                abstractStinger.setBaseDamage(2.0D);
-                //knockback of the stinger
-                abstractStinger.setKnockback(2);
-                if (target != null && target.isAlive()) {
+                fireableStinger.setBaseDamage(2.0D);
+//                //knockback of the stinger
+                fireableStinger.setKnockback(2);
+                if(target != null && target.isAlive()){
                     usingEntity.getLookControl().setLookAt(target);
-                    if (usingEntity.getLookControl().isLookingAtTarget()) {
+                    if(usingEntity.getLookControl().isLookingAtTarget()) {
                         //These 4 variables get the distances to pass into the shoot method
                         //From here to abstractStinger.shoot(double, double, double, float, float) is from the Skeleton class
                         double targetX = target.getX() - usingEntity.getX();
-                        double targetY = target.getY((1.0D / 3.0D)) - abstractStinger.getY();
+                        double targetY = target.getY((1.0D / 3.0D)) - fireableStinger.getY();
                         double targetZ = target.getZ() - usingEntity.getZ();
                         double targetLine = Math.sqrt((targetX * targetX) + (targetZ * targetZ));
                         //The 4th parameter seems to set the damage, and my best estimate of the 5th is some sort of scaling based on difficulty (maybe accuracy)
-                        abstractStinger.shoot(targetX, targetY + targetLine * 0.2D, targetZ, 2.0F, (float)
-                                (14 - usingEntity.level.getDifficulty().getId() * 4));
+                        fireableStinger.shoot(targetX, targetY + targetLine * 0.2D, targetZ, 2.0F, (float) (14 - usingEntity.level.getDifficulty().getId() * 4));
 
                         //successful target , make new stinger
-                        usingEntity.getLevel().addFreshEntity(abstractStinger);
+                        usingEntity.getLevel().addFreshEntity(fireableStinger);
                         //stinger hurts after fire. I figured STARVE is best because it is hurting itself, though if it dies from
                         //firing an arrow it will say "Queen Buzzlet Starved to death"
                         usingEntity.hurt(DamageSource.STARVE, 1);
@@ -715,6 +708,7 @@ public class QueenBuzzlet extends Monster implements FlyingAnimal, RangedAttackM
             }
         }
 
+        @Override
         public boolean canContinueToUse(){
             if(targetInAir){
                 return queen.isFlying() && queen.distanceToSqr(x, y, z) > 2F;
@@ -727,6 +721,7 @@ public class QueenBuzzlet extends Monster implements FlyingAnimal, RangedAttackM
             super.stop();
         }
 
+        @Override
         public void start(){
             if(targetInAir){
                 queen.setFlying(true);
@@ -736,9 +731,6 @@ public class QueenBuzzlet extends Monster implements FlyingAnimal, RangedAttackM
             }
         }
 
-
-
-        @Nullable
         private Vec3 findPos() {
             Vec3 position = queen.position();
             if(cooldown > 0 && queen.orbitPos != null){
@@ -793,8 +785,7 @@ public class QueenBuzzlet extends Monster implements FlyingAnimal, RangedAttackM
             } else if (!livingentity.isAlive()) {
                 return false;
             } else {
-                if (livingentity instanceof Player) {
-                    Player player = (Player) livingentity;
+                if (livingentity instanceof Player player) {
                     if (livingentity.isSpectator() || player.isCreative()) {
                         return false;
                     }
@@ -819,7 +810,7 @@ public class QueenBuzzlet extends Monster implements FlyingAnimal, RangedAttackM
             LivingEntity livingentity = QueenBuzzlet.this.getTarget();
             if (livingentity != null) {
                 moveTargetPoint = new Vec3(livingentity.getX(), livingentity.getY(0.5D), livingentity.getZ());
-                if (QueenBuzzlet.this.getBoundingBox().inflate((double) 0.2F).intersects(livingentity.getBoundingBox())) {
+                if (QueenBuzzlet.this.getBoundingBox().inflate(0.2F).intersects(livingentity.getBoundingBox())) {
                     QueenBuzzlet.this.doHurtTarget(livingentity);
                     if (!QueenBuzzlet.this.isSilent()) {
                         QueenBuzzlet.this.level.levelEvent(1, QueenBuzzlet.this.blockPosition(), 0);

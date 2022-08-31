@@ -28,7 +28,7 @@ public class EntityInit {
 
     public static final RegistryObject<EntityType<QueenBuzzletStinger>> QUEEN_BUZZLET_STINGER = ENTITIES.register("queen_buzzlet_stinger",
             () -> EntityType.Builder.of((EntityType.EntityFactory<QueenBuzzletStinger>) QueenBuzzletStinger::new, MobCategory.MISC)
-                    .sized(0.5F, 0.5F)
+                    .sized(1.0F, 1.0F)
                     .build("queen_buzzlet_stinger"));
 
     //My final problem was everything below here. The game did not know what the attributes of the mob were and therefore could not spawn it.

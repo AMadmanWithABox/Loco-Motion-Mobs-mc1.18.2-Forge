@@ -1,6 +1,7 @@
 package com.fcs.locomotionmobs.init;
 
 import com.fcs.locomotionmobs.Main;
+import com.fcs.locomotionmobs.entities.StingerItem;
 import net.minecraft.world.item.CreativeModeTab;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
@@ -20,6 +21,9 @@ public class ItemInit {
                     new ForgeSpawnEggItem(EntityInit.QUEEN_BUZZLET,//You can change the next 2 parameters to change the color of the egg
                             2, 88,//the next parameter tells minecraft where to put the egg in the creative menu
                             new Item.Properties().tab(ModCreativeTab.instance)));
+
+    public static final RegistryObject<Item> QUEEN_BUZZLET_STINGER = ITEMS.register("queen_buzzlet_stinger",
+            () -> new StingerItem(new Item.Properties().tab(ModCreativeTab.instance)));
 
 
     //This class is for making our own tab in the creative menu
