@@ -13,8 +13,12 @@ public class StingerItem extends Item {
         super(p_41383_);
     }
 
-    public QueenBuzzletStinger createStinger(Level p_40513_, ItemStack p_40514_, LivingEntity p_40515_) {
-        //stinger.setEffectsFromItem(p_40514_);
-        return new QueenBuzzletStinger(p_40513_, p_40515_);
+//    public QueenBuzzletStinger createStinger(Level p_40513_, ItemStack p_40514_, LivingEntity p_40515_) {
+//        //stinger.setEffectsFromItem(p_40514_);
+//        return new QueenBuzzletStinger(p_40513_, p_40515_);
+//    }
+
+    public QueenBuzzletStinger createStinger(Level level, ItemStack stingers, QueenBuzzlet usingEntity) {
+        return new QueenBuzzletStinger(level, usingEntity);
     }
 }
